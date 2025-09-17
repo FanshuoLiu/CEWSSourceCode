@@ -1,0 +1,147 @@
+<component name="ArtifactManager">
+  <artifact type="exploded-war" name="demo1:war exploded">
+    <output-path>$PROJECT_DIR$/target/demo1-1.0-SNAPSHOT</output-path>
+    <properties id="maven-jee-properties">
+      <options>
+        <exploded>true</exploded>
+        <module>demo1</module>
+        <packaging>war</packaging>
+      </options>
+    </properties>
+    <root id="root">
+      <element id="directory" name="WEB-INF">
+        <element id="directory" name="classes">
+          <element id="module-output" name="demo1" />
+        </element>
+        <element id="directory" name="lib">
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-math4-legacy:4.0-beta1" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-statistics-distribution:1.0" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-numbers-core:1.1" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-numbers-complex:1.1" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-numbers-gamma:1.1" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-numbers-fraction:1.1" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-numbers-combinatorics:1.1" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-numbers-angle:1.1" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-numbers-rootfinder:1.1" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-numbers-field:1.1" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-numbers-quaternion:1.1" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-numbers-arrays:1.1" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-rng-client-api:1.5" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-rng-simple:1.5" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-rng-core:1.5" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-rng-sampling:1.5" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-math4-legacy-exception:4.0-beta1" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-math4-legacy-core:4.0-beta1" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-math4-core:4.0-beta1" />
+          <element id="library" level="project" name="Maven: commons-fileupload:commons-fileupload:1.5" />
+          <element id="library" level="project" name="Maven: commons-io:commons-io:2.10.0" />
+          <element id="library" level="project" name="Maven: org.geotools:gt-main:28.0" />
+          <element id="library" level="project" name="Maven: org.geotools:gt-http:28.0" />
+          <element id="library" level="project" name="Maven: org.locationtech.jts:jts-core:1.19.0" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-text:1.10.0" />
+          <element id="library" level="project" name="Maven: com.fasterxml.jackson.core:jackson-core:2.13.2" />
+          <element id="library" level="project" name="Maven: com.google.re2j:re2j:1.6" />
+          <element id="library" level="project" name="Maven: javax.media:jai_core:1.1.3" />
+          <element id="library" level="project" name="Maven: org.geotools:gt-shapefile:28.0" />
+          <element id="library" level="project" name="Maven: org.geotools:gt-swing:28.0" />
+          <element id="library" level="project" name="Maven: org.geotools:gt-render:28.0" />
+          <element id="library" level="project" name="Maven: org.geotools:gt-cql:28.0" />
+          <element id="library" level="project" name="Maven: com.conversantmedia:disruptor:1.2.15" />
+          <element id="library" level="project" name="Maven: org.slf4j:slf4j-api:1.7.13" />
+          <element id="library" level="project" name="Maven: com.miglayout:miglayout:swing:3.7" />
+          <element id="library" level="project" name="Maven: org.geotools:gt-epsg-hsql:28.0" />
+          <element id="library" level="project" name="Maven: org.hsqldb:hsqldb:2.4.1" />
+          <element id="library" level="project" name="Maven: org.geotools:gt-geojson:28.0" />
+          <element id="library" level="project" name="Maven: com.googlecode.json-simple:json-simple:1.1.1" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-lang3:3.8.1" />
+          <element id="library" level="project" name="Maven: org.geotools:gt-referencing:28.0" />
+          <element id="library" level="project" name="Maven: org.ejml:ejml-ddense:0.41" />
+          <element id="library" level="project" name="Maven: org.ejml:ejml-core:0.41" />
+          <element id="library" level="project" name="Maven: commons-pool:commons-pool:1.5.4" />
+          <element id="library" level="project" name="Maven: org.geotools:gt-metadata:28.0" />
+          <element id="library" level="project" name="Maven: org.geotools:gt-opengis:28.0" />
+          <element id="library" level="project" name="Maven: systems.uom:systems-common:2.0.2" />
+          <element id="library" level="project" name="Maven: javax.measure:unit-api:2.0" />
+          <element id="library" level="project" name="Maven: tech.units:indriya:2.0.2" />
+          <element id="library" level="project" name="Maven: tech.uom.lib:uom-lib-common:2.0" />
+          <element id="library" level="project" name="Maven: javax.inject:javax.inject:1" />
+          <element id="library" level="project" name="Maven: si.uom:si-quantity:2.0.1" />
+          <element id="library" level="project" name="Maven: si.uom:si-units:2.0.1" />
+          <element id="library" level="project" name="Maven: jakarta.annotation:jakarta.annotation-api:1.3.4" />
+          <element id="library" level="project" name="Maven: org.geotools.ogc:net.opengis.ows:28.0" />
+          <element id="library" level="project" name="Maven: org.geotools.ogc:org.w3.xlink:28.0" />
+          <element id="library" level="project" name="Maven: org.eclipse.emf:org.eclipse.emf.common:2.15.0" />
+          <element id="library" level="project" name="Maven: org.eclipse.emf:org.eclipse.emf.ecore:2.15.0" />
+          <element id="library" level="project" name="Maven: org.eclipse.emf:org.eclipse.emf.ecore.xmi:2.15.0" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jgridshift:jgridshift-core:1.3" />
+          <element id="library" level="project" name="Maven: net.sf.geographiclib:GeographicLib-Java:1.49" />
+          <element id="library" level="project" name="Maven: org.geotools:gt-coverage:28.0" />
+          <element id="library" level="project" name="Maven: javax.media:jai_imageio:1.1" />
+          <element id="library" level="project" name="Maven: it.geosolutions.imageio-ext:imageio-ext-tiff:1.4.7" />
+          <element id="library" level="project" name="Maven: it.geosolutions.imageio-ext:imageio-ext-utilities:1.4.7" />
+          <element id="library" level="project" name="Maven: it.geosolutions.imageio-ext:imageio-ext-geocore:1.4.7" />
+          <element id="library" level="project" name="Maven: it.geosolutions.imageio-ext:imageio-ext-streams:1.4.7" />
+          <element id="library" level="project" name="Maven: javax.xml.bind:jaxb-api:2.4.0-b180830.0359" />
+          <element id="library" level="project" name="Maven: org.glassfish.jaxb:jaxb-runtime:2.4.0-b180830.0438" />
+          <element id="library" level="project" name="Maven: org.glassfish.jaxb:txw2:2.4.0-b180830.0438" />
+          <element id="library" level="project" name="Maven: com.sun.istack:istack-commons-runtime:3.0.7" />
+          <element id="library" level="project" name="Maven: org.jvnet.staxex:stax-ex:1.8" />
+          <element id="library" level="project" name="Maven: com.sun.xml.fastinfoset:FastInfoset:1.2.15" />
+          <element id="library" level="project" name="Maven: javax.activation:javax.activation-api:1.2.0" />
+          <element id="library" level="project" name="Maven: io.airlift:aircompressor:0.20" />
+          <element id="library" level="project" name="Maven: javax.media:jai_codec:1.1.3" />
+          <element id="library" level="project" name="Maven: org.jaitools:jt-zonalstats:1.6.0" />
+          <element id="library" level="project" name="Maven: org.jaitools:jt-utils:1.6.0" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.affine:jt-affine:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.algebra:jt-algebra:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.bandmerge:jt-bandmerge:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.bandselect:jt-bandselect:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.bandcombine:jt-bandcombine:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.border:jt-border:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.buffer:jt-buffer:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.crop:jt-crop:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.iterators:jt-iterators:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.lookup:jt-lookup:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.mosaic:jt-mosaic:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.nullop:jt-nullop:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.rescale:jt-rescale:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.scale:jt-scale:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.scale2:jt-scale2:1.1.24" />
+          <element id="library" level="project" name="Maven: org.huldra.math:bigint:0.7.1" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.stats:jt-stats:1.1.24" />
+          <element id="library" level="project" name="Maven: com.google.guava:guava:27.0-jre" />
+          <element id="library" level="project" name="Maven: com.google.guava:failureaccess:1.0" />
+          <element id="library" level="project" name="Maven: com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava" />
+          <element id="library" level="project" name="Maven: com.google.code.findbugs:jsr305:3.0.2" />
+          <element id="library" level="project" name="Maven: org.checkerframework:checker-qual:2.5.2" />
+          <element id="library" level="project" name="Maven: com.google.j2objc:j2objc-annotations:1.1" />
+          <element id="library" level="project" name="Maven: org.codehaus.mojo:animal-sniffer-annotations:1.17" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.translate:jt-translate:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.utilities:jt-utilities:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.warp:jt-warp:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.zonal:jt-zonal:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.binarize:jt-binarize:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.format:jt-format:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.colorconvert:jt-colorconvert:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.errordiffusion:jt-errordiffusion:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.orderdither:jt-orderdither:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.colorindexer:jt-colorindexer:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.imagefunction:jt-imagefunction:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.piecewise:jt-piecewise:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.classifier:jt-classifier:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.rlookup:jt-rlookup:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.vectorbin:jt-vectorbin:1.1.24" />
+          <element id="library" level="project" name="Maven: it.geosolutions.jaiext.shadedrelief:jt-shadedrelief:1.1.24" />
+          <element id="library" level="project" name="Maven: com.vividsolutions:jts:1.13" />
+          <element id="library" level="project" name="Maven: com.google.code.gson:gson:2.11.0" />
+          <element id="library" level="project" name="Maven: com.google.errorprone:error_prone_annotations:2.27.0" />
+          <element id="library" level="project" name="Maven: org.apache.commons:commons-math3:3.6.1" />
+        </element>
+      </element>
+      <element id="directory" name="META-INF">
+        <element id="file-copy" path="$PROJECT_DIR$/target/demo1-1.0-SNAPSHOT/META-INF/MANIFEST.MF" />
+      </element>
+      <element id="javaee-facet-resources" facet="demo1/web/Web" />
+    </root>
+  </artifact>
+</component>
