@@ -437,6 +437,7 @@ public class encryptedServlet extends HttpServlet {
                         exteriorList.add(coordinatesList);
                     }
 
+
                     if (polygon.getInteriors().size() != 0) {
                         List<List<Point>> interiors = polygon.getInteriors();
                         for (List<Point> interior : interiors) {
