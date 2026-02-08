@@ -1,12 +1,12 @@
 package com.encryptrdSoftware.hnust.controller;
 
 import com.encryptrdSoftware.hnust.model.*;
+import com.encryptrdSoftware.hnust.util.JSONParseUtils;
 import com.encryptrdSoftware.hnust.util.SecretUtils;
-import com.encryptrdSoftware.hnust.util.StringUtils;
 import com.encryptrdSoftware.hnust.util.WatermarkingUtils;
-import org.gdal.gdal.gdal;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.gdal.ogr.Layer;
-import org.gdal.ogr.ogr;
+
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -20,10 +20,8 @@ import java.util.Map;
 
 @WebServlet("/watermark")
 public class extractWatermarkingServlet extends HttpServlet {
-    static {
-        gdal.AllRegister();
-        ogr.RegisterAll();
-    }
+    private ObjectMapper objectMapper = new ObjectMapper(); // 创建 ObjectMapper 实例
+
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         doPost(req, resp);
@@ -33,13 +31,12 @@ public class extractWatermarkingServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         req.setCharacterEncoding("UTF-8");
         resp.setContentType("application/json;charset=UTF-8");
-
-        String filename1 = req.getParameter("filename1");
+        System.out.println("开始处理水印提取");
+        Domain.btn="水印";
+        Map<String, Object> map1 = JSONParseUtils.parseJson(req, resp);
+        String filename1 = (String) map1.get("filename");
         System.out.println("文件名:" + filename1);
-        if (!filename1.contains("水印")){
-            resp.getWriter().write("{\"status\":\"error\",\"message\":\"该shp不含水印，请重新上传\"}");
-            return;
-        }
+
         //获取用户的文件数据
         String filepath = UploadServlet.Path + File.separator + filename1;
         System.out.println("文件路径:" + filepath);
@@ -61,12 +58,12 @@ public class extractWatermarkingServlet extends HttpServlet {
             System.out.println("水印长度:"+strings.size());
             List<Integer> imgSize = insertWatermarkingServlet.pic;
 
-            if (type == 1) {
+            if (type == 1||type == 4) {
                 List<Point> points1 = (List<Point>) map.get("points1");
                 System.out.println("点数:"+points1.size());
                 List<Point> recoverPoints = new ArrayList();
                 StringBuilder sb = new StringBuilder();
-
+                
                 List<encryptedDomain> encryptedDomains = Domain.calEncrypt(points1);
                 List<watermarkDomain> watermarkDomains = Domain.calWatermark(points1);
 
@@ -83,25 +80,26 @@ public class extractWatermarkingServlet extends HttpServlet {
                 SecretUtils.createSHP(recoverPoints, layer, filename1.substring(0,filename1.lastIndexOf(".")), "提取水印", maps);
                 //处理点数大于比特串的情况
                 int originalBitLength = imgSize.get(0) * imgSize.get(1);
-//                if (num > originalBitLength) {
-//                    int proportion = (int) (num / originalBitLength);
-//                    String[] bitStrings = new String[originalBitLength];
-//                    for (int i = 0; i <= proportion; i++) {
-//                        if (i == proportion) {
-//                            bitStrings[i] = sb.substring(i * originalBitLength);
-//                        } else {
-//                            bitStrings[i] = sb.substring(i * originalBitLength, (i + 1) * originalBitLength);
-//                        }
-//                    }
-//                    String compareBitStrings = WatermarkingUtils.compareBitStrings(bitStrings);
-//                    WatermarkingUtils.decodeImage(compareBitStrings, imgSize.get(0), imgSize.get(1), "提取"+filename1);
-//                } else {
+                if (num > originalBitLength) {
+                    int proportion = (int) (num / originalBitLength);
+                    String[] bitStrings = new String[originalBitLength];
+                    for (int i = 0; i <= proportion; i++) {
+                        if (i == proportion) {
+                            bitStrings[i] = sb.substring(i * originalBitLength);
+                        } else {
+                            bitStrings[i] = sb.substring(i * originalBitLength, (i + 1) * originalBitLength);
+                        }
+                    }
+                    String compareBitStrings = WatermarkingUtils.compareBitStrings(bitStrings);
+                    WatermarkingUtils.decodeImage(compareBitStrings, imgSize.get(0), imgSize.get(1), "提取"+filename1);
+                } else {
                     WatermarkingUtils.decodeImage(sb.toString(), imgSize.get(0), imgSize.get(1), "提取"+filename1);
-//                }
+                }
                 resp.getWriter().write("{\"status\":\"success\",\"message\":\"水印提取成功\"}");
                 return;
             }
             int index = 0;
+
             StringBuilder sb = new StringBuilder();
             int number = (int) map.get("num");
             System.out.println("number:" + number);
@@ -162,8 +160,8 @@ public class extractWatermarkingServlet extends HttpServlet {
                         y = y + encryptedDomains.get(i).getIntegerAngle();
                         recoverPoints.add(new Point(x, y));
                         sb.append(s);
-                        index++;
                     }
+
                     if (polygon.getInteriors().size() != 0) {
                         List<List<Point>> recoverInteriors = new ArrayList<>();
                         List<List<Point>> interiors = polygon.getInteriors();

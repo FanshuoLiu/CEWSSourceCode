@@ -1,10 +1,7 @@
 package com.encryptrdSoftware.hnust.util;
 
 import com.encryptrdSoftware.hnust.controller.UploadServlet;
-import com.encryptrdSoftware.hnust.model.Domain;
-import com.encryptrdSoftware.hnust.model.Point;
-import com.encryptrdSoftware.hnust.model.encryptedDomain;
-import com.encryptrdSoftware.hnust.model.watermarkDomain;
+import com.encryptrdSoftware.hnust.model.*;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -128,51 +125,50 @@ public class WatermarkingUtils {
         return Arrays.asList(allocations);
     }
 
-//    public static String compareBitStrings(String[] bitStrings) {
-//        if (bitStrings == null || bitStrings.length == 0) {
-//            return "";
-//        }
-//        int length = bitStrings[0].length();
-//        //统计每个位置'0'的数量
-//        int[] count0 = new int[length];
-//        //统计每个位置'1'的数量
-//        int[] count1 = new int[length];
-//
-//        //遍历每个比特串并统计每个位置的'0'和'1'的数量
-//        for (String bitString : bitStrings) {
-//          if (bitString != null){
-//              for (int i = 0; i < bitString.length(); i++) {
-//                  if (bitString.charAt(i) == '0') {
-//                      count0[i]++;
-//                  } else {
-//                      count1[i]++;
-//                  }
-//              }
-//          }
-//        }
-//
-//        //构建最终的结果比特串
-//        StringBuilder result = new StringBuilder();
-//
-//        for (int i = 0; i < length; i++) {
-//            //如果'0'的数量更多，添加'0'
-//            if (count0[i] > count1[i]) {
-//                result.append('0');
-//                //如果'1'的数量更多，添加'1'
-//            } else if (count1[i] > count0[i]) {
-//                result.append('1');
-//                // 如果相等，使用第一个比特串的值
-//            } else {
-//                result.append(bitStrings[0].charAt(i));
-//            }
-//        }
-//        return result.toString();
-//    }
+    public static String compareBitStrings(String[] bitStrings) {
+        if (bitStrings == null || bitStrings.length == 0) {
+            return "";
+        }
+        int length = bitStrings[0].length();
+        //统计每个位置'0'的数量
+        int[] count0 = new int[length];
+        //统计每个位置'1'的数量
+        int[] count1 = new int[length];
+
+        //遍历每个比特串并统计每个位置的'0'和'1'的数量
+        for (String bitString : bitStrings) {
+          if (bitString != null){
+              for (int i = 0; i < bitString.length(); i++) {
+                  if (bitString.charAt(i) == '0') {
+                      count0[i]++;
+                  } else {
+                      count1[i]++;
+                  }
+              }
+          }
+        }
+
+        //构建最终的结果比特串
+        StringBuilder result = new StringBuilder();
+
+        for (int i = 0; i < length; i++) {
+            //如果'0'的数量更多，添加'0'
+            if (count0[i] > count1[i]) {
+                result.append('0');
+                //如果'1'的数量更多，添加'1'
+            } else if (count1[i] > count0[i]) {
+                result.append('1');
+                // 如果相等，使用第一个比特串的值
+            } else {
+                result.append(bitStrings[0].charAt(i));
+            }
+        }
+        return result.toString();
+    }
 
     public static List<String> initString(String path,int num) throws IOException {
         //确保比特串够分配
         StringBuilder builder = createWatermarking(path);
-        System.out.println("比特串:"+builder);
         int length = builder.length();
         System.out.println("比特串长度:"+length);
         if (length < num){
@@ -189,10 +185,26 @@ public class WatermarkingUtils {
         for (int i = 0; i < list.size();i++){
             Double radius = WatermarkingUtils.embedWatermark(strings.get(index), watermarkDomains.get(i).getDecimalRadius());
             Double angle = WatermarkingUtils.embedWatermark(strings.get(index), watermarkDomains.get(i).getDecimalAngle());
-            watermarkedPoints.add(new Point(radius+encryptedDomains.get(i).getIntegerRadius(), angle+encryptedDomains.get(i).getIntegerAngle()));
+            Point point=new Point(radius+encryptedDomains.get(i).getIntegerRadius(), angle+encryptedDomains.get(i).getIntegerAngle());
+            watermarkedPoints.add(point);
             index++;
         }
         return watermarkedPoints;
     }
+    public static List<Point> calcuWatermarking1(Coordinate coordinate,List<Point> list,List<String> strings,int index){
+        List<Point> points = coordinate.calculatePolarCoordinates(list);
+        List<encryptedDomain> encryptedDomains = Domain.calEncrypt(points);
+        List<watermarkDomain> watermarkDomains = Domain.calWatermark(points);
+        List<Point> watermarkedPoints = new ArrayList<>();
+        for (int i = 0; i < list.size();i++){
+            Double radius = WatermarkingUtils.embedWatermark(strings.get(index), watermarkDomains.get(i).getDecimalRadius());
+            Double angle = WatermarkingUtils.embedWatermark(strings.get(index), watermarkDomains.get(i).getDecimalAngle());
+            Point point=new Point(radius+encryptedDomains.get(i).getIntegerRadius(), angle+encryptedDomains.get(i).getIntegerAngle());
+            watermarkedPoints.add(point);
+            index++;
+        }
+        return watermarkedPoints;
+    }
+
 }
 

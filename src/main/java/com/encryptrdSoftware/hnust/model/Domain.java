@@ -9,8 +9,9 @@ import java.util.Map;
 
 public class Domain {
     public static double adaptationFactor;
-    public static double Qr=0.1;
+    public static double Qr;
     public static double Qa;
+    public static String btn;
     static Feature feature = null;
     static Geometry geometry = null;
 
@@ -107,6 +108,19 @@ public class Domain {
                             }
                                     geometries.add(new Polygon(exteriorPoints,interiors));
 //
+                            break;
+                        case 4:
+                            int a=geometry.GetGeometryCount();
+                                if (a==1){
+                                    processPoint(geometry,points1);
+                                }
+                            for (int j = 0; j < a; j++) {
+                                Geometry g = geometry.GetGeometryRef(j);
+                                List<Point> pointList = processLine(g);
+                                centerPoints.add(Coordinate.calculateGeometricCenter(pointList));
+                                points1.addAll(pointList);
+                                num+=pointList.size();
+                            }
                             break;
                         case 5:
                             List<Line> lines = new ArrayList<>();

@@ -14,21 +14,16 @@ import java.io.OutputStream;
 public class DownloadServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String filename = request.getParameter("filename");
-
-        // 检查文件名是否为空
+        
         if (filename == null || filename.isEmpty()) {
             response.getWriter().println("文件名不能为空");
             return;
         }
-        // 定义文件路径
         File downloadFile = new File(request.getServletContext().getRealPath("/uploads"), filename);
-        // 检查文件是否存在
         if (downloadFile.exists() && !downloadFile.isDirectory()) {
-            // 设置响应内容类型
             response.setContentType("application/octet-stream");
             response.setHeader("Content-Disposition", "attachment; filename=\"" + new String(filename.getBytes("UTF-8"), "ISO-8859-1") + "\"");
-
-            // 文件输入流
+            
             try (FileInputStream inStream = new FileInputStream(downloadFile);
                  OutputStream outStream = response.getOutputStream()) {
                 byte[] buffer = new byte[4096];

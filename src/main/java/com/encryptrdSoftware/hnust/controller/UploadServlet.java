@@ -22,7 +22,7 @@ public class UploadServlet extends HttpServlet {
     private static final String UPLOAD_DIRECTORY = "uploads"; // 文件上传目录
 
     public static String filePath;
-    public static String Path="E:\\BaiduNetdiskDownload\\demo1 (2)\\demo1\\target\\demo1-1.0-SNAPSHOT\\uploads";
+    public static String Path="your upload path\\uploads";
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -37,12 +37,10 @@ public class UploadServlet extends HttpServlet {
                 List<FileItem> fileItems = upload.parseRequest(req);
                 for (FileItem item : fileItems) {
                     if (!item.isFormField()) {
-//                        String name = (String) req.getAttribute("filename");
                         String fileName = new File(item.getName()).getName();
                         filePath = getServletContext().getRealPath("") + File.separator + UPLOAD_DIRECTORY + File.separator+ fileName;
-                        System.out.println(filePath);
+                        System.out.println("文件路径:"+filePath);
                         File uploadDir = new File(getServletContext().getRealPath("") + File.separator + UPLOAD_DIRECTORY);
-                        System.out.println("文件上传路径:"+uploadDir);
                         if (!uploadDir.exists()) {
                             uploadDir.mkdir();
                         }

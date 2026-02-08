@@ -21,7 +21,7 @@ public class listZipFilesServlet extends HttpServlet {
     }
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
         Map<String, List<File>> listMap = ZipCompressorUtils.getPackage();
         Set<Map.Entry<String, List<File>>> set = listMap.entrySet();

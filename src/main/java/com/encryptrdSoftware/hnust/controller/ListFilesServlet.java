@@ -16,7 +16,6 @@ import java.util.Map;
 
 @WebServlet("/listFiles")
 public class ListFilesServlet extends HttpServlet {
-    private static final long serialVersionUID = 1L;
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -56,5 +55,6 @@ public class ListFilesServlet extends HttpServlet {
 
 // 将 Map 转换为 JSON 格式并返回
         out.write(new Gson().toJson(fileMap));
+        System.out.println("返回成功");
     }
 }

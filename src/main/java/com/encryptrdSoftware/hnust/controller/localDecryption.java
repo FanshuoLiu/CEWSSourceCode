@@ -2,6 +2,7 @@ package com.encryptrdSoftware.hnust.controller;
 
 import com.encryptrdSoftware.hnust.model.*;
 import com.encryptrdSoftware.hnust.util.SecretUtils;
+import com.encryptrdSoftware.hnust.util.StringUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -28,17 +29,19 @@ public class localDecryption extends HttpServlet {
         gdal.AllRegister();
         ogr.RegisterAll();
     }
+
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         doPost(req, resp);
     }
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException{
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         req.setCharacterEncoding("UTF-8");
         resp.setContentType("application/json;charset=UTF-8"); // 更改为 JSON 响应
         // 读取请求体
         StringBuilder sb = new StringBuilder();
+        Domain.btn="加密";
         String text;
         try (BufferedReader reader = req.getReader()) {
             while ((text = reader.readLine()) != null) {
@@ -50,11 +53,11 @@ public class localDecryption extends HttpServlet {
         try {
             // 解析 JSON 数据
             JsonObject jsonObject = gson.fromJson(requestBody, JsonObject.class);
-
             JsonArray indicesArray = jsonObject.getAsJsonArray("selectedIndices");
             JsonArray valuesArray = jsonObject.getAsJsonArray("selectedValues");
+            System.out.println("索引"+indicesArray);
+            System.out.println("内容"+valuesArray);
             String allOptions = jsonObject.get("allOptions").getAsString();
-//            String properties = jsonObject.get("properties").getAsString();
             String[] strings = allOptions.split(",");
 
             // 获取选中的索引和内容
@@ -71,17 +74,25 @@ public class localDecryption extends HttpServlet {
                 values[i] = valuesArray.get(i).getAsString();
                 layer = Domain.getLayer(new File(UploadServlet.Path + "/" + values[i]));
                 int currentGeomType = layer.GetGeomType();
-                if (currentGeomType==1){
-                    resp.getWriter().write("{\"status\":\"error\",\"message\":\"请选择线或面文件\"}");
-                    return;
-                }
                 if (firstGeomType == 0) {
                     firstGeomType = currentGeomType; // 记录第一个几何类型
+                    System.out.println("firstGeomType:"+firstGeomType);
                 } else if (!firstGeomType.equals(currentGeomType)) {
                     resp.getWriter().write("{\"status\":\"error\",\"message\":\"请选择相同要素的文件\"}");
                     return; // 如果当前几何类型与第一个不一致则返回
                 }
             }
+            String targetAttrName = "fclass";
+            String filePath=UploadServlet.Path + "/" + values[0];
+            String targetAttrValue="city";
+            List<LinkedHashMap<String, Object>> maps = SecretUtils.readShapefile(new File(filePath));
+            Map<String, Set<Object>> map1 = StringUtils.deduplicateAttrToMap(maps);// 同一行输出当前map的所有键值对
+            Map<Object, List<Integer>> indexes = StringUtils.getAttrValueToIndexes(new File(filePath), targetAttrName);
+
+            List<Integer> Indexes = StringUtils.getIndexesByAttrValue(new File(filePath), targetAttrName, targetAttrValue);
+            System.out.println("Indexes:"+Indexes);
+            Map<String, Object> map = Domain.SHPtoList(new File(UploadServlet.Path + "/" + values[0]));
+            List<Shape> list = (List<Shape>) map.get("geometries");
             int index=0;
 
             String s = SecretUtils.longestCommonPrefix(values);
@@ -105,26 +116,48 @@ public class localDecryption extends HttpServlet {
                 indices[i]=indices[i]-index;
             }
             long startTime = System.currentTimeMillis(); // 记录开始时间
-            //选择用于恢复的部分极径极角密文份额的索引
-            //选取的k个文件的索引
-            List<Integer> integers = Arrays.asList(indices);
 
-            String s2 = UploadServlet.Path + "/" + values[0];
-            Map<String, Object> map1 = Domain.SHPtoList(new File(s2));
-            List<Line> geometries = (List<Line>) map1.get("geometries");
-            System.out.println("点数:" + geometries.size());
-            List<Integer> lengths=(List<Integer>)map1.get("lengths");
-            System.out.println("lengths:"+ lengths);
-            int maxIndex = findMaxIndex(lengths)+1;
-            int pIndex=maxIndex*encryptedServlet.split;
-            List<Shape> list = new ArrayList<>();
-            System.out.println("maxIndex: " + maxIndex);
-                if (firstGeomType==2){
+            List<Integer> integers = Arrays.asList(indices);
+            if (firstGeomType == 1||firstGeomType == 4) {
+                try {
+                    List<Point> recoverPoints = new ArrayList<>();
+                    for (int i = 0; i < Indexes.size(); i++) {
+                        List<BigInteger> selectedRadius = new ArrayList<>();
+                        List<BigInteger> selectedAngle = new ArrayList<>();
+                        int integer = Indexes.get(i);
+                        for (int j = 0; j < integers.size(); j++) {
+                            selectedRadius.add(encryptedServlet.radiusList.get(integer).get(integers.get(j) - 1));
+                            selectedAngle.add(encryptedServlet.angleList.get(integer).get(integers.get(j) - 1));
+                        }
+                        BigInteger recoverRadius = SecretUtils.recoverSecret(selectedRadius, integers, encryptedServlet.prime);
+                        double x = recoverRadius.doubleValue() + encryptedServlet.watermarkDomainList.get(integer).getDecimalRadius();
+                        BigInteger recoverAngle = SecretUtils.recoverSecret(selectedAngle, integers, BigInteger.valueOf(367));
+                        double y = recoverAngle.doubleValue() + encryptedServlet.watermarkDomainList.get(integer).getDecimalAngle();
+                        recoverPoints.add(new Point(x, y));
+                    }
+                    //转为原始直角坐标并生成文件
+                    List<Point> points = Coordinate.recoverCartesian(recoverPoints);
+                    long endTime = System.currentTimeMillis(); // 记录结束时间
+                    long duration = endTime - startTime; // 计算所花费的时间
+                    System.out.println("解密代码执行时间: " + duration + " 毫秒");
+                    String value = values[0];
+                    String s1 = value.replace("加密", "");
+                    SecretUtils.createSHP(points,layer,s1.substring(0, s1.lastIndexOf(".")),"解密", maps);
+                    resp.getWriter().write("{\"status\":\"success\",\"message\":\"解密成功\"}");
+                    return;
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            int number=0;
+            int pIndex=0;
+            for (Shape shape:list){
+                if (shape instanceof Line){
                     List<Point> recoverPoints=new ArrayList<>();
-                    List<watermarkDomain> watermarkDomainList = encryptedServlet.watermarkDomainCollectionList.get(maxIndex-1);
-                    for (int k = 0; k <watermarkDomainList.size(); k++){
+                    for (int k = 0; k <encryptedServlet.watermarkDomainCollectionList.get(number).size(); k++){
                         List<BigInteger> radiusIntegers = encryptedServlet.radiusList.get(pIndex);
-                        List<BigInteger> angleIntegers = encryptedServlet.angleList.get(pIndex++);
+                        List<BigInteger> angleIntegers = encryptedServlet.angleList.get(pIndex);
                         List<BigInteger> selectedRadius=new ArrayList<>();
                         List<BigInteger> selectedAngle=new ArrayList<>();
                         for (int j =0;j<integers.size();j++){
@@ -132,25 +165,198 @@ public class localDecryption extends HttpServlet {
                             selectedAngle.add(angleIntegers.get(integers.get(j)-1));
                         }
                         BigInteger recoverRadius = SecretUtils.recoverSecret(selectedRadius, integers,encryptedServlet.prime);
-                        double x= recoverRadius.doubleValue() + watermarkDomainList.get(k).getDecimalRadius();
+                        double x=recoverRadius.doubleValue()+encryptedServlet.watermarkDomainCollectionList.get(number).get(k).getDecimalRadius();
                         BigInteger recoverAngle = SecretUtils.recoverSecret(selectedAngle, integers,BigInteger.valueOf(367));
-                        double y= recoverAngle.doubleValue() + watermarkDomainList.get(k).getDecimalAngle();
+                        double y=recoverAngle.doubleValue()+encryptedServlet.watermarkDomainCollectionList.get(number).get(k).getDecimalAngle();
                         recoverPoints.add(new Point(x,y));
+                        pIndex++;
                     }
-                    System.out.println("recover:"+recoverPoints);
-                    geometries.add(new Line(Coordinate.recoverCartesian(recoverPoints)));
-                    list.add(new Line(Coordinate.recoverCartesian(recoverPoints)));
-                }else{
+                    number++;
+                    recoverShapes.add(new Line(Coordinate.recoverCartesian(recoverPoints)));
+                }else if (shape instanceof Polygon) {
+                    Polygon polygon = (Polygon) shape;
+                    polygon = polygon.removeLastPoint();
+                    List<Point> recoverPoints=new ArrayList<>();
+                    for (int k = 0; k <encryptedServlet.watermarkDomainCollectionList.get(number).size(); k++){
+                        List<BigInteger> radiusIntegers = encryptedServlet.radiusList.get(pIndex);
+                        List<BigInteger> angleIntegers = encryptedServlet.angleList.get(pIndex);
+                        List<BigInteger> selectedRadius=new ArrayList<>();
+                        List<BigInteger> selectedAngle=new ArrayList<>();
+                        for (int j =0;j<integers.size();j++){
+                            selectedRadius.add(radiusIntegers.get(integers.get(j)-1));
+                            selectedAngle.add(angleIntegers.get(integers.get(j)-1));
+                        }
+                        BigInteger recoverRadius = SecretUtils.recoverSecret(selectedRadius,integers,encryptedServlet.prime);
+                        double x=recoverRadius.doubleValue()+encryptedServlet.watermarkDomainCollectionList.get(number).get(k).getDecimalRadius();
+                        BigInteger recoverAngle = SecretUtils.recoverSecret(selectedAngle, integers,BigInteger.valueOf(367));
+                        double y=recoverAngle.doubleValue()+encryptedServlet.watermarkDomainCollectionList.get(number).get(k).getDecimalAngle();
+                        recoverPoints.add(new Point(x,y));
+                        pIndex++;
+                    }
+                    number++;
+                    if (polygon.getInteriors().size()!=0){
+                        System.out.println("有内环");
+                        List<List<Point>> recoverInteriors = new ArrayList<>();
+                        List<List<Point>> interiors = polygon.getInteriors();
+                        List<Point> interiorPoints = new ArrayList<>();
+                        for (int i=0;i<interiors.size();i++){
+                            for (int k = 0; k <encryptedServlet.watermarkDomainCollectionList.get(number).size(); k++){
+                                List<BigInteger> radiusIntegers = encryptedServlet.radiusList.get(pIndex);
+                                List<BigInteger> angleIntegers = encryptedServlet.angleList.get(pIndex);
+                                List<BigInteger> selectedRadius=new ArrayList<>();
+                                List<BigInteger> selectedAngle=new ArrayList<>();
+                                for (int j =0;j<integers.size();j++){
+                                    selectedRadius.add(radiusIntegers.get(integers.get(j)-1));
+                                    selectedAngle.add(angleIntegers.get(integers.get(j)-1));
+                                }
+                                BigInteger recoverRadius = SecretUtils.recoverSecret(selectedRadius, integers,encryptedServlet.prime);
+                                double x=recoverRadius.doubleValue()+encryptedServlet.watermarkDomainCollectionList.get(number).get(k).getDecimalRadius();
+                                BigInteger recoverAngle = SecretUtils.recoverSecret(selectedAngle, integers,BigInteger.valueOf(3600));
+                                double y=recoverAngle.doubleValue()+encryptedServlet.watermarkDomainCollectionList.get(number).get(k).getDecimalAngle();
+                                interiorPoints.add(new Point(x,y));
+                                pIndex++;
+                            }
+                            number++;
+                            recoverInteriors.add(Coordinate.recoverCartesian(interiorPoints));
+                        }
+                        recoverShapes.add(new Polygon(Coordinate.recoverCartesian(recoverPoints),recoverInteriors));
+
+                    }else {
+                        recoverShapes.add(new Polygon(Coordinate.recoverCartesian(recoverPoints),null));
+                    }
+                } else if (shape instanceof MultiPoint) {
+                    List<Point> recoverPoints = new ArrayList<>();
+
+                    // 处理每个Point
+                    for (int k = 0; k < encryptedServlet.watermarkDomainCollectionList.get(number).size(); k++) {
+                        List<BigInteger> selectedRadius = new ArrayList<>();
+                        List<BigInteger> selectedAngle = new ArrayList<>();
+                        for (int j = 0; j < integers.size(); j++) {
+                            selectedRadius.add(encryptedServlet.radiusList.get(pIndex).get(integers.get(j) - 1));
+                            selectedAngle.add(encryptedServlet.angleList.get(pIndex).get(integers.get(j) - 1));
+                        }
+                        BigInteger recoverRadius = SecretUtils.recoverSecret(selectedRadius, integers, encryptedServlet.prime);
+                        double x = recoverRadius.doubleValue() + encryptedServlet.watermarkDomainCollectionList.get(number).get(k).getDecimalRadius();
+                        BigInteger recoverAngle = SecretUtils.recoverSecret(selectedAngle, integers, BigInteger.valueOf(367));
+                        double y = recoverAngle.doubleValue() + encryptedServlet.watermarkDomainCollectionList.get(number).get(k).getDecimalAngle();
+                        recoverPoints.add(new Point(x, y));
+                        pIndex++;
+                    }
+                    number++;
+
+                    // 转为原始直角坐标并创建恢复后的MultiPoint
+                    List<Point> points = Coordinate.recoverCartesian(recoverPoints);
+                    MultiPoint multiPoint = new MultiPoint();
+                    for (Point point : points) {
+                        multiPoint.addPoint(point);
+                    }
+                    recoverShapes.add(multiPoint);
+                } else if (shape instanceof MultiLine) {
+                    MultiLine multiLine = (MultiLine) shape;
+                    List<Line> recoveredLines = new ArrayList<>();
+
+                    // 处理每个Line
+                    for (int lineIndex = 0; lineIndex < multiLine.getLines().size(); lineIndex++) {
+                        List<Point> recoverPoints = new ArrayList<>();
+
+                        // 处理Line的每个点
+                        for (int k = 0; k < encryptedServlet.watermarkDomainCollectionList.get(number).size(); k++) {
+                            List<BigInteger> radiusIntegers = encryptedServlet.radiusList.get(pIndex);
+                            List<BigInteger> angleIntegers = encryptedServlet.angleList.get(pIndex);
+                            List<BigInteger> selectedRadius = new ArrayList<>();
+                            List<BigInteger> selectedAngle = new ArrayList<>();
+                            for (int j = 0; j < integers.size(); j++) {
+                                selectedRadius.add(radiusIntegers.get(integers.get(j) - 1));
+                                selectedAngle.add(angleIntegers.get(integers.get(j) - 1));
+                            }
+                            BigInteger recoverRadius = SecretUtils.recoverSecret(selectedRadius, integers, encryptedServlet.prime);
+                            double x = recoverRadius.doubleValue() + encryptedServlet.watermarkDomainCollectionList.get(number).get(k).getDecimalRadius();
+                            BigInteger recoverAngle = SecretUtils.recoverSecret(selectedAngle, integers, BigInteger.valueOf(367));
+                            double y = recoverAngle.doubleValue() + encryptedServlet.watermarkDomainCollectionList.get(number).get(k).getDecimalAngle();
+                            recoverPoints.add(new Point(x, y));
+                            pIndex++;
+                        }
+                        number++;
+
+                        // 转为原始直角坐标并添加到恢复的Lines列表
+                        recoveredLines.add(new Line(Coordinate.recoverCartesian(recoverPoints)));
+                    }
+
+                    // 创建恢复后的MultiLine
+                    recoverShapes.add(new MultiLine(recoveredLines));
+                } else if (shape instanceof MultiPolygon) {
+                    MultiPolygon multiPolygon = (MultiPolygon) shape;
+                    List<Polygon> polygons = multiPolygon.getPolygons();
+                    List<Polygon> recoveredPolygons = new ArrayList<>();
+
+                    // 处理每个Polygon
+                    for (Polygon polygon : polygons) {
+                        polygon = polygon.removeLastPoint();
+                        List<Point> recoverPoints = new ArrayList<>();
+
+                        // 处理外环
+                        for (int k = 0; k < encryptedServlet.watermarkDomainCollectionList.get(number).size(); k++) {
+                            List<BigInteger> radiusIntegers = encryptedServlet.radiusList.get(pIndex);
+                            List<BigInteger> angleIntegers = encryptedServlet.angleList.get(pIndex);
+                            List<BigInteger> selectedRadius = new ArrayList<>();
+                            List<BigInteger> selectedAngle = new ArrayList<>();
+                            for (int j = 0; j < integers.size(); j++) {
+                                selectedRadius.add(radiusIntegers.get(integers.get(j) - 1));
+                                selectedAngle.add(angleIntegers.get(integers.get(j) - 1));
+                            }
+                            BigInteger recoverRadius = SecretUtils.recoverSecret(selectedRadius, integers, encryptedServlet.prime);
+                            double x = recoverRadius.doubleValue() + encryptedServlet.watermarkDomainCollectionList.get(number).get(k).getDecimalRadius();
+                            BigInteger recoverAngle = SecretUtils.recoverSecret(selectedAngle, integers, BigInteger.valueOf(367));
+                            double y = recoverAngle.doubleValue() + encryptedServlet.watermarkDomainCollectionList.get(number).get(k).getDecimalAngle();
+                            recoverPoints.add(new Point(x, y));
+                            pIndex++;
+                        }
+                        number++;
+
+                        // 处理内环
+                        if (polygon.getInteriors().size() != 0) {
+                            List<List<Point>> recoverInteriors = new ArrayList<>();
+                            List<List<Point>> interiors = polygon.getInteriors();
+                            for (int i = 0; i < interiors.size(); i++) {
+                                List<Point> interiorPoints = new ArrayList<>();
+                                for (int k = 0; k < encryptedServlet.watermarkDomainCollectionList.get(number).size(); k++) {
+                                    List<BigInteger> radiusIntegers = encryptedServlet.radiusList.get(pIndex);
+                                    List<BigInteger> angleIntegers = encryptedServlet.angleList.get(pIndex);
+                                    List<BigInteger> selectedRadius = new ArrayList<>();
+                                    List<BigInteger> selectedAngle = new ArrayList<>();
+                                    for (int j = 0; j < integers.size(); j++) {
+                                        selectedRadius.add(radiusIntegers.get(integers.get(j) - 1));
+                                        selectedAngle.add(angleIntegers.get(integers.get(j) - 1));
+                                    }
+                                    BigInteger recoverRadius = SecretUtils.recoverSecret(selectedRadius, integers, encryptedServlet.prime);
+                                    double x = recoverRadius.doubleValue() + encryptedServlet.watermarkDomainCollectionList.get(number).get(k).getDecimalRadius();
+                                    BigInteger recoverAngle = SecretUtils.recoverSecret(selectedAngle, integers, BigInteger.valueOf(3600));
+                                    double y = recoverAngle.doubleValue() + encryptedServlet.watermarkDomainCollectionList.get(number).get(k).getDecimalAngle();
+                                    interiorPoints.add(new Point(x, y));
+                                    pIndex++;
+                                }
+                                number++;
+                                recoverInteriors.add(Coordinate.recoverCartesian(interiorPoints));
+                            }
+                            recoveredPolygons.add(new Polygon(Coordinate.recoverCartesian(recoverPoints), recoverInteriors));
+                        } else {
+                            recoveredPolygons.add(new Polygon(Coordinate.recoverCartesian(recoverPoints), null));
+                        }
+                    }
+
+                    // 创建恢复后的MultiPolygon
+                    recoverShapes.add(new MultiPolygon(recoveredPolygons));
+                }else {
                     resp.getWriter().write("{\"status\":\"error\",\"message\":\"不支持的类型\"}");
                     return;
                 }
-
-            long endTime = System.currentTimeMillis(); // 记录结束时间
-            long duration = endTime - startTime; // 计算所花费的时间
+            }
+            long endTime = System.currentTimeMillis();
+            long duration = endTime - startTime;
             System.out.println("代码执行时间: " + duration + " 毫秒");
             String value = values[0];
             String s1 = value.replace("加密", "");
-            SecretUtils.createSHP(list, layer,s1.substring(0, s1.lastIndexOf(".")), "局部解密");
+            SecretUtils.createSHP(recoverShapes, layer,s1.substring(0, s1.lastIndexOf(".")), "解密", maps);
             resp.getWriter().write("{\"status\":\"success\",\"message\":\"解密成功\"}");
         } catch (JsonSyntaxException e) {
             e.printStackTrace();
@@ -158,25 +364,5 @@ public class localDecryption extends HttpServlet {
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
-    }
-    // 适用于List集合的方法，因为List可以通过索引访问元素
-    public static <T extends Comparable<T>> int findMaxIndex(List<T> list) {
-        if (list == null || list.isEmpty()) {
-            throw new IllegalArgumentException("集合不能为null或空");
-        }
-
-        int maxIndex = 0;
-        T maxValue = list.get(0);
-
-        for (int i = 1; i < list.size(); i++) {
-            T current = list.get(i);
-            // 比较当前元素与最大值
-            if (current.compareTo(maxValue) > 0) {
-                maxValue = current;
-                maxIndex = i;
-            }
-        }
-
-        return maxIndex;
     }
 }

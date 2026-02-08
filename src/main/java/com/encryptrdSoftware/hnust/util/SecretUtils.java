@@ -2,6 +2,8 @@ package com.encryptrdSoftware.hnust.util;
 
 import com.encryptrdSoftware.hnust.model.Line;
 import com.encryptrdSoftware.hnust.model.MultiLine;
+import com.encryptrdSoftware.hnust.model.MultiPoint;
+import com.encryptrdSoftware.hnust.model.MultiPolygon;
 import com.encryptrdSoftware.hnust.model.Shape;
 import com.encryptrdSoftware.hnust.model.encryptedDomain;
 import com.encryptrdSoftware.hnust.controller.UploadServlet;
@@ -24,6 +26,7 @@ import org.geotools.geometry.jts.JTSFactoryFinder;
 import org.geotools.referencing.CRS;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
 import org.locationtech.jts.geom.*;
+import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.opengis.feature.Property;
@@ -35,6 +38,7 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.net.MalformedURLException;
 import java.nio.charset.Charset;
 import java.security.SecureRandom;
 import java.util.*;
@@ -42,40 +46,40 @@ import java.util.*;
 
 public class SecretUtils {
     //生成一个指定位长度的大素数，范围为3~2^bitlength-1
-    // 缓存SecureRandom实例，避免频繁创建的性能损耗
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
-    public static BigInteger generatePrime(List<encryptedDomain> eList) {
-        if (eList.isEmpty()) {
-            throw new IllegalArgumentException("eList cannot be empty");
-        }
-
-        // 提取整数半径并转换为BigInteger（提前过滤空值，避免NPE）
-        List<BigInteger> list = new ArrayList<>(eList.size());
-        for (encryptedDomain e : eList) {
-            if (e != null) {
-                list.add(BigInteger.valueOf(e.getIntegerRadius()));
+        public static BigInteger generatePrime(List<encryptedDomain> eList) {
+            if (eList.isEmpty()) {
+                throw new IllegalArgumentException("eList cannot be empty");
             }
+
+            List<BigInteger> list = new ArrayList<>(eList.size());
+            for (encryptedDomain e : eList) {
+                if (e != null) {
+                    list.add(BigInteger.valueOf(e.getIntegerRadius()));
+                }
+            }
+
+            if (list.isEmpty()) {
+                throw new IllegalArgumentException("No valid integer radius found in eList");
+            }
+
+            BigInteger maxNum = Collections.max(list);
+            System.out.println("maxNum:" + maxNum);
+
+            // 步骤1：从 maxNum + 1 开始找第一个素数
+            BigInteger start = maxNum.add(BigInteger.ONE);
+            BigInteger prime = start;
+
+            // 步骤2：逐个检查是否为素数（isProbablePrime参数100表示极高的素数确定性）
+            while (!prime.isProbablePrime(100)) {
+                prime = prime.add(BigInteger.ONE);
+            }
+
+            System.out.println("生成的素数：" + prime);
+            return prime;
         }
 
-        if (list.isEmpty()) {
-            throw new IllegalArgumentException("No valid integer radius found in eList");
-        }
-
-        // 计算最大值（O(n)操作，大数据量下无法避免）
-        BigInteger maxNum = Collections.max(list);
-
-        // 计算所需素数的位数：maxNum的位数+1，确保生成的素数一定大于maxNum
-        // 原理：n位二进制数的范围是[2^(n-1), 2^n-1]，n+1位的数必然大于n位的数
-        int requiredBits = maxNum.bitLength() + 1;
-
-        // 确保至少生成2位素数（最小素数是2）
-        requiredBits = Math.max(requiredBits, 2);
-        BigInteger bigInteger = BigInteger.probablePrime(requiredBits, SECURE_RANDOM);
-        System.out.println("生成的素数：" + bigInteger);
-        // 生成素数（一次生成即可，无需循环检查）
-        return bigInteger;
-    }
     /*生成一个多项式
     secret：要共享的秘密，作为多项式的常数项。
     degree：多项式的次数，即多项式的最高次幂。
@@ -181,218 +185,430 @@ public class SecretUtils {
     }
 
     //生成shp文件
-    public static void createSHP(List<? extends Shape> coordinates, Layer layer, String filename, String btn,Object...arr) throws IOException, ClassNotFoundException {
-        File file;
-        if (btn.contains("水印")||btn.equals("解密")||btn.equals("局部解密")){
-           file = new File(UploadServlet.Path+File.separator+btn+filename+".shp");
-       }else {
-            file = new File(UploadServlet.Path+File.separator+btn+filename+((int)arr[0]+1)+".shp");
+    // 几何大类枚举（方便分类判断）
+    private enum GeometryCategory {
+        POINT_CATEGORY, LINE_CATEGORY, POLYGON_CATEGORY
+    }
+
+    // 固定TypeName，避免获取不到
+    private static final String FEATURE_TYPE_NAME = "SHP_Feature";
+
+    public static void createSHP(List<? extends Shape> coordinates,
+                                 Layer layer,
+                                 String filename,
+                                 String btn,
+                                 List<LinkedHashMap<String, Object>> attrTable,
+                                 Object...arr) throws IOException, ClassNotFoundException {
+        // 前置校验
+        if (coordinates == null || coordinates.isEmpty()) {
+            throw new IllegalArgumentException("几何要素集合coordinates不能为空！");
         }
 
-        System.out.println(file);
-            Map<String, Object> params = new HashMap<>();
-            //指定shp的url
+        // ===================== 1. 路径与文件处理 =====================
+        File baseDir = new File(UploadServlet.Path);
+        if (!baseDir.exists()) {
+            throw new IOException("基础路径不存在：" + UploadServlet.Path);
+        }
+        if (!baseDir.canWrite()) {
+            throw new IOException("基础路径无写入权限：" + UploadServlet.Path);
+        }
+        File file = buildShpFile(baseDir, btn, filename, arr);
+        System.out.println("生成SHP文件路径：" + file.getAbsolutePath());
+
+        // 处理文件已存在的情况：删除旧文件（或重命名）
+        if (file.exists()) {
+            deleteShpFiles(file);
+            System.out.println("已删除旧的SHP文件：" + file.getAbsolutePath());
+        }
+
+        // ===================== 2. 几何类型识别 =====================
+        Shape firstShape = coordinates.get(0);
+        GeometryCategory category = getGeometryCategory(firstShape);
+        validateGeometryCategory(coordinates, category);
+        String targetGeometryType = getTargetMultiGeometryType(category);
+//        System.out.println("目标JTS几何类型：" + targetGeometryType);
+
+        // ===================== 3. 创建DataStore（修正参数配置） =====================
+        Map<String, Object> params = new HashMap<>();
+        try {
+            // 使用ShapefileDataStoreFactory的常量，避免key写错
             params.put(ShapefileDataStoreFactory.URLP.key, file.toURI().toURL());
-            //创建空间索引
-            params.put(ShapefileDataStoreFactory.CREATE_SPATIAL_INDEX.key, Boolean.TRUE);
-            // 创建新的Shapefile数据存储
-            ShapefileDataStore dataStore = (ShapefileDataStore) new ShapefileDataStoreFactory().createNewDataStore(params);
-            dataStore.setCharset(Charset.forName("UTF-8"));
-            SimpleFeatureType featureType = createFeatureType(layer);
-            dataStore.createSchema(featureType);
+        } catch (MalformedURLException e) {
+            throw new IOException("文件URL构建失败：" + file.getAbsolutePath(), e);
+        }
+        // 正确设置参数（Boolean类型，而非String）
+        params.put(ShapefileDataStoreFactory.CREATE_SPATIAL_INDEX.key, Boolean.TRUE);
+        params.put(ShapefileDataStoreFactory.ENABLE_SPATIAL_INDEX.key, Boolean.TRUE);
+        params.put(ShapefileDataStoreFactory.MEMORY_MAPPED.key, Boolean.FALSE); // 避免文件占用
 
-        try (Transaction transaction = new DefaultTransaction("create")) {
-            String typeName = dataStore.getTypeNames()[0];
-            SimpleFeatureSource featureSource = dataStore.getFeatureSource(typeName);
-            if (featureSource instanceof SimpleFeatureStore) {
-                SimpleFeatureStore featureStore = (SimpleFeatureStore) featureSource;
-                DefaultFeatureCollection collection = new DefaultFeatureCollection();
-                GeometryFactory geometryFactory = JTSFactoryFinder.getGeometryFactory();
-                int index=0;
-                        // 根据几何类型处理不同形状
-                        for (Shape shape : coordinates) {
-                            if (shape instanceof com.encryptrdSoftware.hnust.model.Point) {
-                                SimpleFeatureBuilder featureBuilder = new SimpleFeatureBuilder(featureType);
-                                com.encryptrdSoftware.hnust.model.Point point = (com.encryptrdSoftware.hnust.model.Point) shape;
-                                org.locationtech.jts.geom.Coordinate coords = new org.locationtech.jts.geom.Coordinate(point.getX(),point.getY());
-                                Point point1 = geometryFactory.createPoint(coords);
-                                featureBuilder.add(point1);
-                                SimpleFeature feature = featureBuilder.buildFeature(null);
-                                collection.add(feature);
-                                index++;
-                            }else if (shape instanceof com.encryptrdSoftware.hnust.model.MultiPoint) {
-                                // 创建 SimpleFeatureType
-//                                SimpleFeatureType featureType = createFeatureType(layer, properties, "MULTIPOINT");
-//                                dataStore.createSchema(featureType);
-                                SimpleFeatureBuilder featureBuilder = new SimpleFeatureBuilder(featureType);
-                                // 处理 MultiPoint
-                                com.encryptrdSoftware.hnust.model.MultiPoint multiPoint = (com.encryptrdSoftware.hnust.model.MultiPoint) shape;
-                                Point[] points = new Point[multiPoint.getNum()];
-                                // 构建 Point 数组
-                                for (int i = 0; i < multiPoint.getNum(); i++) {
-                                    double x = multiPoint.getPoints().get(i).getX();
-                                    double y = multiPoint.getPoints().get(i).getY();
-                                    points[i] = geometryFactory.createPoint(new Coordinate(x, y));
-                                }
-                                // 使用 Point 数组创建 MultiPoint
-                                MultiPoint jtsMultiPoint = geometryFactory.createMultiPoint(points);
-                                // 将 JTS MultiPoint 添加到特征中
-                                featureBuilder.add(jtsMultiPoint);
-                                // 构建 SimpleFeature
-                                SimpleFeature feature = featureBuilder.buildFeature(null);
-                                collection.add(feature);
-                                index++;
-                            }else if (shape instanceof Line) {
-//                                SimpleFeatureType featureType = createFeatureType(layer,properties,"LINESTRING");
-//                                dataStore.createSchema(featureType);
-                                SimpleFeatureBuilder featureBuilder = new SimpleFeatureBuilder(featureType);
-                                Line line = (Line) shape;
-                                org.locationtech.jts.geom.Coordinate[] coords = new org.locationtech.jts.geom.Coordinate[line.getLength()];
-                                for (int i = 0; i < line.getLength(); i++) {
-                                    coords[i] = new org.locationtech.jts.geom.Coordinate(line.getPoints().get(i).getX(), line.getPoints().get(i).getY());
-                                }
-                                LineString lineString = geometryFactory.createLineString(coords);
-                                featureBuilder.add(lineString);
-                                SimpleFeature feature = featureBuilder.buildFeature(null);
-                                collection.add(feature);
-                                index++;
-                            }else if (shape instanceof MultiLine) {
-//                                SimpleFeatureType featureType = createFeatureType(layer,properties,"MULTILINESTRING");
-//                                dataStore.createSchema(featureType);
-                                SimpleFeatureBuilder featureBuilder = new SimpleFeatureBuilder(featureType);
+        ShapefileDataStore dataStore = (ShapefileDataStore) new ShapefileDataStoreFactory().createNewDataStore(params);
+        if (dataStore == null) {
+            throw new IOException("创建ShapefileDataStore失败！请检查路径/权限/GeoTools依赖");
+        }
+        dataStore.setCharset(Charset.forName("UTF-8"));
 
-                                MultiLine multiLine = (MultiLine) shape;
-                                List<LineString> lineStrings = new ArrayList<>();
+        // ===================== 4. 创建FeatureType（指定固定TypeName） =====================
+        SimpleFeatureType featureType = createFeatureTypeWithAttrs(attrTable, targetGeometryType);
+        if (featureType == null) {
+            throw new IllegalArgumentException("创建SimpleFeatureType失败！");
+        }
+        if (featureType.getGeometryDescriptor() == null) {
+            throw new IllegalStateException("几何字段未被GeoTools识别！请检查是否使用JTS的org.locationtech.jts.geom包下的类");
+        }
 
-                                for (Line line : multiLine.getLines()) {
-                                    int length = line.getLength();
-                                    org.locationtech.jts.geom.Coordinate[] coords = new org.locationtech.jts.geom.Coordinate[length];
-                                    for (int i = 0; i < length; i++) {
-                                        coords[i] = new org.locationtech.jts.geom.Coordinate(line.getPoints().get(i).getX(), line.getPoints().get(i).getY());
-                                    }
-                                    LineString lineString = geometryFactory.createLineString(coords);
-                                    lineStrings.add(lineString);
-                                }
+        // 创建Schema（指定TypeName，避免默认名称问题）
+        dataStore.createSchema(featureType);
 
-                                MultiLineString multiLineString = geometryFactory.createMultiLineString(lineStrings.toArray(new LineString[0]));
-                                featureBuilder.add(multiLineString);
-                                SimpleFeature feature = featureBuilder.buildFeature(null);
-                                collection.add(feature);
-                                index++;
-                            }else if (shape instanceof com.encryptrdSoftware.hnust.model.Polygon) {
-//                                SimpleFeatureType featureType = createFeatureType(layer,properties,"POLYGON");
-//                                dataStore.createSchema(featureType);
-                                org.locationtech.jts.geom.Polygon polygonShape = null;
-                                SimpleFeatureBuilder featureBuilder = new SimpleFeatureBuilder(featureType);
+        // ===================== 5. 获取FeatureStore（核心修复：通过getFeatureSource转换） =====================
+        // 步骤1：先获取FeatureSource（ShapefileDataStore唯一支持的方法）
+        String[] typeNames = dataStore.getTypeNames();
+        if (typeNames == null || typeNames.length == 0) {
+            throw new IOException("DataStore中无可用的TypeName，Schema创建失败！");
+        }
+        // 优先使用固定TypeName，否则用第一个
+        String useTypeName = FEATURE_TYPE_NAME;
+        if (!Arrays.asList(typeNames).contains(useTypeName)) {
+            useTypeName = typeNames[0];
+        }
+        System.out.println("使用的TypeName：" + useTypeName);
 
-                                com.encryptrdSoftware.hnust.model.Polygon polygon = (com.encryptrdSoftware.hnust.model.Polygon) shape;
-
-                                // 检查外环数据
-                                List<com.encryptrdSoftware.hnust.model.Point> exteriors = polygon.getExteriors();
-
-                                org.locationtech.jts.geom.Coordinate[] coords = new org.locationtech.jts.geom.Coordinate[exteriors.size() + 1]; // 加1用于闭合
-                                for (int i = 0; i < exteriors.size(); i++) {
-                                    coords[i] = new org.locationtech.jts.geom.Coordinate(exteriors.get(i).getX(), exteriors.get(i).getY());
-                                }
-                                coords[exteriors.size()] = new org.locationtech.jts.geom.Coordinate(coords[0].x, coords[0].y); // 闭合
-
-                                org.locationtech.jts.geom.LinearRing outerRing = geometryFactory.createLinearRing(coords);
-                                if (polygon.getInteriors() != null && !polygon.getInteriors().isEmpty()) {
-                                    LinearRing[] innerRings = new LinearRing[polygon.getInteriors().size()];
-                                    List<List<com.encryptrdSoftware.hnust.model.Point>> interiors = polygon.getInteriors();
-                                    for (int i = 0; i < interiors.size(); i++) {
-                                        List<com.encryptrdSoftware.hnust.model.Point> interior = interiors.get(i);
-                                        org.locationtech.jts.geom.Coordinate[] interiorCoords = new org.locationtech.jts.geom.Coordinate[interior.size() + 1];
-                                        for (int j = 0; j < interior.size(); j++) {
-                                            interiorCoords[j] = new org.locationtech.jts.geom.Coordinate(interior.get(j).getX(), interior.get(j).getY());
-                                        }
-                                        interiorCoords[interior.size()] = new org.locationtech.jts.geom.Coordinate(interiorCoords[0].x, interiorCoords[0].y);
-                                        innerRings[i] = geometryFactory.createLinearRing(interiorCoords);
-                                    }
-                                    polygonShape = geometryFactory.createPolygon(outerRing, innerRings);
-                                } else {
-                                    polygonShape = geometryFactory.createPolygon(outerRing);
-                                }
-
-                                featureBuilder.add(polygonShape);
-                                SimpleFeature feature = featureBuilder.buildFeature(null);
-                                collection.add(feature);
-                                index++;
-                            }else if (shape instanceof com.encryptrdSoftware.hnust.model.MultiPolygon) {
-//                                SimpleFeatureType featureType = createFeatureType(layer,properties,"MULTIPOLYGON");
-//                                dataStore.createSchema(featureType);
-                                SimpleFeatureBuilder featureBuilder = new SimpleFeatureBuilder(featureType);
-
-                                com.encryptrdSoftware.hnust.model.MultiPolygon multiPolygon = (com.encryptrdSoftware.hnust.model.MultiPolygon) shape;
-                                List<org.locationtech.jts.geom.Polygon> polygons = new ArrayList<>();
-
-                                for (com.encryptrdSoftware.hnust.model.Polygon polygon : multiPolygon.getPolygons()) {
-                                    // 检查外环数据
-                                    List<com.encryptrdSoftware.hnust.model.Point> exteriors = polygon.getExteriors();
-                                    org.locationtech.jts.geom.Coordinate[] coords = new org.locationtech.jts.geom.Coordinate[exteriors.size() + 1]; // 加1用于闭合
-                                    for (int i = 0; i < exteriors.size(); i++) {
-                                        coords[i] = new org.locationtech.jts.geom.Coordinate(exteriors.get(i).getX(), exteriors.get(i).getY());
-                                    }
-                                    coords[exteriors.size()] = new org.locationtech.jts.geom.Coordinate(coords[0].x, coords[0].y); // 闭合
-
-                                    org.locationtech.jts.geom.LinearRing outerRing = geometryFactory.createLinearRing(coords);
-                                    LinearRing[] innerRings = null;
-
-                                    if (polygon.getInteriors() != null && !polygon.getInteriors().isEmpty()) {
-                                        innerRings = new LinearRing[polygon.getInteriors().size()];
-                                        List<List<com.encryptrdSoftware.hnust.model.Point>> interiors = polygon.getInteriors();
-                                        for (int i = 0; i < interiors.size(); i++) {
-                                            List<com.encryptrdSoftware.hnust.model.Point> interior = interiors.get(i);
-                                            org.locationtech.jts.geom.Coordinate[] interiorCoords = new org.locationtech.jts.geom.Coordinate[interior.size() + 1];
-                                            for (int j = 0; j < interior.size(); j++) {
-                                                interiorCoords[j] = new org.locationtech.jts.geom.Coordinate(interior.get(j).getX(), interior.get(j).getY());
-                                            }
-                                            interiorCoords[interior.size()] = new org.locationtech.jts.geom.Coordinate(interiorCoords[0].x, interiorCoords[0].y);
-                                            innerRings[i] = geometryFactory.createLinearRing(interiorCoords);
-                                        }
-                                    }
-
-                                    org.locationtech.jts.geom.Polygon polygonShape = geometryFactory.createPolygon(outerRing, innerRings);
-                                    polygons.add(polygonShape);
-                                }
-
-                                // 创建 MultiPolygon
-                                org.locationtech.jts.geom.MultiPolygon multiPolygonShape = geometryFactory.createMultiPolygon(polygons.toArray(new org.locationtech.jts.geom.Polygon[0]));
-
-                                featureBuilder.add(multiPolygonShape);
-                                SimpleFeature feature = featureBuilder.buildFeature(null);
-                                collection.add(feature);
-                                index++;
-                            }
-                        }
-
-
-                featureStore.setTransaction(transaction);
-                featureStore.addFeatures(collection);
-                transaction.commit();
+        // 步骤2：获取FeatureSource并转换为SimpleFeatureStore（可写）
+        SimpleFeatureStore featureStore = null;
+        try {
+            // 核心修正：调用getFeatureSource，而非getFeatureStore
+            org.geotools.data.FeatureSource featureSource = dataStore.getFeatureSource(useTypeName);
+            // 校验是否可转换为可写的SimpleFeatureStore
+            if (featureSource instanceof org.geotools.data.simple.SimpleFeatureStore) {
+                featureStore = (org.geotools.data.simple.SimpleFeatureStore) featureSource;
             } else {
-                System.out.println("FeatureStore 不支持");
+                throw new IOException("FeatureSource无法转换为SimpleFeatureStore！当前类型：" + featureSource.getClass().getName());
             }
+        } catch (ClassCastException e) {
+            throw new IOException("FeatureSource转换为SimpleFeatureStore失败！GeoTools版本不兼容或DataStore只读", e);
+        }
+
+        if (featureStore == null) {
+            throw new IOException("无法获取可写的SimpleFeatureStore！");
+        }
+
+        // ===================== 6. 写入数据 =====================
+        DefaultFeatureCollection collection = new DefaultFeatureCollection();
+        GeometryFactory geometryFactory = JTSFactoryFinder.getGeometryFactory();
+        int index = 0;
+
+        for (Shape shape : coordinates) {
+            SimpleFeatureBuilder featureBuilder = new SimpleFeatureBuilder(featureType);
+            // 转换自定义类为JTS几何对象
+            Geometry jtsGeometry = buildJtsGeometry(shape, category, geometryFactory);
+            if (jtsGeometry == null) {
+                throw new IOException("转换自定义Shape为JTS几何对象失败：" + shape.getClass().getName());
+            }
+            featureBuilder.add(jtsGeometry);
+
+            // 绑定属性
+            bindAttributes(featureBuilder, featureType, attrTable, index);
+
+            SimpleFeature feature = featureBuilder.buildFeature(null);
+            collection.add(feature);
+            index++;
+        }
+
+        // 执行写入
+        try (Transaction transaction = new DefaultTransaction("create")) {
+            featureStore.setTransaction(transaction);
+            featureStore.addFeatures(collection);
+            transaction.commit();
+            System.out.printf("SHP文件创建成功，共生成 %d 个%s类型要素%n", index, targetGeometryType);
         } catch (Exception e) {
             e.printStackTrace();
+            throw new IOException("写入SHP失败：" + e.getMessage());
         } finally {
-            dataStore.dispose();
+            if (dataStore != null) {
+                dataStore.dispose(); // 释放资源，避免文件占用
+            }
         }
     }
 
+    // ===================== 辅助方法：删除SHP相关的所有文件 =====================
+    private static void deleteShpFiles(File shpFile) throws IOException {
+        String baseName = shpFile.getName().substring(0, shpFile.getName().lastIndexOf("."));
+        File parentDir = shpFile.getParentFile();
+        // SHP相关文件后缀
+        String[] suffixes = {".shp", ".shx", ".dbf", ".prj", ".qix", ".fix"};
+        for (String suffix : suffixes) {
+            File f = new File(parentDir, baseName + suffix);
+            if (f.exists()) {
+                if (!f.delete()) {
+                    throw new IOException("无法删除旧文件：" + f.getAbsolutePath() + "，请关闭占用该文件的程序（如QGIS/资源管理器）");
+                }
+            }
+        }
+    }
 
+    // ===================== 核心：创建FeatureType =====================
+    private static SimpleFeatureType createFeatureTypeWithAttrs(List<LinkedHashMap<String, Object>> attrTable,
+                                                                String targetGeometryType) {
+        SimpleFeatureTypeBuilder builder = new SimpleFeatureTypeBuilder();
+        builder.setName(FEATURE_TYPE_NAME); // 固定名称
+        builder.setCRS(DefaultGeographicCRS.WGS84); // 必须设置CRS
+
+        // 获取JTS几何类（全限定名）
+        Class<? extends Geometry> jtsGeometryClass = getJtsGeometryClass(targetGeometryType);
+        if (jtsGeometryClass == null) {
+            throw new IllegalArgumentException("不支持的JTS几何类型：" + targetGeometryType);
+        }
+//        System.out.println("使用的JTS几何类：" + jtsGeometryClass.getName());
+
+        // 添加几何字段（必须是JTS类）
+        builder.add("the_geom", jtsGeometryClass);
+//        System.out.println("已添加JTS几何字段：the_geom，类型：" + jtsGeometryClass.getSimpleName());
+
+        // 添加属性字段
+        if (attrTable != null && !attrTable.isEmpty()) {
+            LinkedHashMap<String, Object> firstRow = attrTable.get(0);
+            for (Map.Entry<String, Object> entry : firstRow.entrySet()) {
+                String fieldName = validateFieldName(entry.getKey());
+                Class<?> fieldClass = getFieldClass(entry.getValue());
+                builder.add(fieldName, fieldClass);
+                System.out.println("添加属性字段：" + fieldName + "，类型：" + fieldClass.getSimpleName());
+            }
+        }
+
+        SimpleFeatureType featureType = builder.buildFeatureType();
+        System.out.println("FeatureType总字段数：" + featureType.getAttributeCount());
+//        System.out.println("几何字段描述符是否为null：" + (featureType.getGeometryDescriptor() == null));
+        return featureType;
+    }
+
+    // ===================== 其他辅助方法（无核心修改） =====================
+    private static File buildShpFile(File baseDir, String btn, String filename, Object...arr) {
+        String fileName;
+        if (btn.contains("水印")||btn.equals("解密")||btn.equals("局部解密")){
+            fileName = btn + filename + ".shp";
+        }else {
+            fileName = btn + filename + ((int)arr[0]+1) + ".shp";
+        }
+        return new File(baseDir, fileName);
+    }
+
+    private static GeometryCategory getGeometryCategory(Shape shape) {
+        if (shape == null) {
+            throw new IllegalArgumentException("Shape对象为null！");
+        }
+        if (shape instanceof com.encryptrdSoftware.hnust.model.Point || shape instanceof com.encryptrdSoftware.hnust.model.MultiPoint) {
+            return GeometryCategory.POINT_CATEGORY;
+        } else if (shape instanceof Line || shape instanceof MultiLine) {
+            return GeometryCategory.LINE_CATEGORY;
+        } else if (shape instanceof com.encryptrdSoftware.hnust.model.Polygon || shape instanceof com.encryptrdSoftware.hnust.model.MultiPolygon) {
+            return GeometryCategory.POLYGON_CATEGORY;
+        } else {
+            throw new IllegalArgumentException("不支持的自定义几何类型：" + shape.getClass().getName());
+        }
+    }
+
+    private static void validateGeometryCategory(List<? extends Shape> coordinates, GeometryCategory targetCategory) {
+        for (Shape shape : coordinates) {
+            GeometryCategory currentCategory = getGeometryCategory(shape);
+            if (currentCategory != targetCategory) {
+                throw new IllegalArgumentException(
+                        String.format("几何要素类型不统一！当前要素类型%s属于%s，目标大类为%s",
+                                shape.getClass().getName(), currentCategory, targetCategory)
+                );
+            }
+        }
+    }
+
+    private static String getTargetMultiGeometryType(GeometryCategory category) {
+        if (category == GeometryCategory.POINT_CATEGORY) {
+            return "MULTIPOINT";
+        } else if (category == GeometryCategory.LINE_CATEGORY) {
+            return "MULTILINESTRING";
+        } else if (category == GeometryCategory.POLYGON_CATEGORY) {
+            return "MULTIPOLYGON";
+        } else {
+            return "MULTIPOLYGON";
+        }
+    }
+
+    private static Class<? extends Geometry> getJtsGeometryClass(String geometryType) {
+        switch (geometryType.toUpperCase()) {
+            case "MULTIPOINT":
+                return org.locationtech.jts.geom.MultiPoint.class;
+            case "MULTILINESTRING":
+                return org.locationtech.jts.geom.MultiLineString.class;
+            case "MULTIPOLYGON":
+                return org.locationtech.jts.geom.MultiPolygon.class;
+            case "POINT":
+                return org.locationtech.jts.geom.Point.class;
+            case "LINESTRING":
+                return org.locationtech.jts.geom.LineString.class;
+            case "POLYGON":
+                return org.locationtech.jts.geom.Polygon.class;
+            default:
+                throw new IllegalArgumentException("不支持的JTS几何类型：" + geometryType);
+        }
+    }
+
+    private static Geometry buildJtsGeometry(Shape shape, GeometryCategory category, GeometryFactory gf) {
+        switch (category) {
+            case POINT_CATEGORY:
+                return convertCustomPointToJts(shape, gf);
+            case LINE_CATEGORY:
+                return convertCustomLineToJts(shape, gf);
+            case POLYGON_CATEGORY:
+                return convertCustomPolygonToJts(shape, gf);
+            default:
+                throw new IllegalArgumentException("不支持的几何大类：" + category);
+        }
+    }
+
+    private static Geometry convertCustomPointToJts(Shape shape, GeometryFactory gf) {
+        if (shape instanceof com.encryptrdSoftware.hnust.model.MultiPoint) {
+            com.encryptrdSoftware.hnust.model.MultiPoint customMp = (com.encryptrdSoftware.hnust.model.MultiPoint) shape;
+            org.locationtech.jts.geom.Point[] jtsPoints = new org.locationtech.jts.geom.Point[customMp.getNum()];
+            for (int i = 0; i < customMp.getNum(); i++) {
+                com.encryptrdSoftware.hnust.model.Point customP = customMp.getPoints().get(i);
+                jtsPoints[i] = gf.createPoint(new Coordinate(customP.getX(), customP.getY()));
+            }
+            return gf.createMultiPoint(jtsPoints);
+        } else if (shape instanceof com.encryptrdSoftware.hnust.model.Point) {
+            com.encryptrdSoftware.hnust.model.Point customP = (com.encryptrdSoftware.hnust.model.Point) shape;
+            org.locationtech.jts.geom.Point jtsP = gf.createPoint(new Coordinate(customP.getX(), customP.getY()));
+            return gf.createMultiPoint(new org.locationtech.jts.geom.Point[]{jtsP});
+        } else {
+            throw new IllegalArgumentException("点类仅支持自定义的Point/MultiPoint：" + shape.getClass().getName());
+        }
+    }
+
+    private static Geometry convertCustomLineToJts(Shape shape, GeometryFactory gf) {
+        if (shape instanceof MultiLine) {
+            MultiLine customMl = (MultiLine) shape;
+            List<LineString> jtsLines = new ArrayList<>();
+            for (Line customLine : customMl.getLines()) {
+                Coordinate[] coords = new Coordinate[customLine.getLength()];
+                for (int i = 0; i < customLine.getLength(); i++) {
+                    com.encryptrdSoftware.hnust.model.Point p = customLine.getPoints().get(i);
+                    coords[i] = new Coordinate(p.getX(), p.getY());
+                }
+                jtsLines.add(gf.createLineString(coords));
+            }
+            return gf.createMultiLineString(jtsLines.toArray(new LineString[0]));
+        } else if (shape instanceof Line) {
+            Line customLine = (Line) shape;
+            Coordinate[] coords = new Coordinate[customLine.getLength()];
+            for (int i = 0; i < customLine.getLength(); i++) {
+                com.encryptrdSoftware.hnust.model.Point p = customLine.getPoints().get(i);
+                coords[i] = new Coordinate(p.getX(), p.getY());
+            }
+            LineString jtsLine = gf.createLineString(coords);
+            return gf.createMultiLineString(new LineString[]{jtsLine});
+        } else {
+            throw new IllegalArgumentException("线类仅支持自定义的Line/MultiLine：" + shape.getClass().getName());
+        }
+    }
+
+    private static Geometry convertCustomPolygonToJts(Shape shape, GeometryFactory gf) {
+        if (shape instanceof com.encryptrdSoftware.hnust.model.MultiPolygon) {
+            com.encryptrdSoftware.hnust.model.MultiPolygon customMp = (com.encryptrdSoftware.hnust.model.MultiPolygon) shape;
+            List<org.locationtech.jts.geom.Polygon> jtsPolygons = new ArrayList<>();
+            for (com.encryptrdSoftware.hnust.model.Polygon customP : customMp.getPolygons()) {
+                jtsPolygons.add(convertCustomSinglePolygonToJts(customP, gf));
+            }
+            return gf.createMultiPolygon(jtsPolygons.toArray(new org.locationtech.jts.geom.Polygon[0]));
+        } else if (shape instanceof com.encryptrdSoftware.hnust.model.Polygon) {
+            com.encryptrdSoftware.hnust.model.Polygon customP = (com.encryptrdSoftware.hnust.model.Polygon) shape;
+            org.locationtech.jts.geom.Polygon jtsP = convertCustomSinglePolygonToJts(customP, gf);
+            return gf.createMultiPolygon(new org.locationtech.jts.geom.Polygon[]{jtsP});
+        } else {
+            throw new IllegalArgumentException("面类仅支持自定义的Polygon/MultiPolygon：" + shape.getClass().getName());
+        }
+    }
+
+    private static org.locationtech.jts.geom.Polygon convertCustomSinglePolygonToJts(com.encryptrdSoftware.hnust.model.Polygon customP, GeometryFactory gf) {
+        List<com.encryptrdSoftware.hnust.model.Point> exteriorPoints = customP.getExteriors();
+        Coordinate[] exteriorCoords = new Coordinate[exteriorPoints.size() + 1];
+        for (int i = 0; i < exteriorPoints.size(); i++) {
+            com.encryptrdSoftware.hnust.model.Point p = exteriorPoints.get(i);
+            exteriorCoords[i] = new Coordinate(p.getX(), p.getY());
+        }
+        exteriorCoords[exteriorPoints.size()] = exteriorCoords[0];
+        LinearRing outerRing = gf.createLinearRing(exteriorCoords);
+
+        LinearRing[] innerRings = null;
+        if (customP.getInteriors() != null && !customP.getInteriors().isEmpty()) {
+            innerRings = new LinearRing[customP.getInteriors().size()];
+            for (int i = 0; i < customP.getInteriors().size(); i++) {
+                List<com.encryptrdSoftware.hnust.model.Point> interiorPoints = customP.getInteriors().get(i);
+                Coordinate[] interiorCoords = new Coordinate[interiorPoints.size() + 1];
+                for (int j = 0; j < interiorPoints.size(); j++) {
+                    com.encryptrdSoftware.hnust.model.Point p = interiorPoints.get(j);
+                    interiorCoords[j] = new Coordinate(p.getX(), p.getY());
+                }
+                interiorCoords[interiorPoints.size()] = interiorCoords[0];
+                innerRings[i] = gf.createLinearRing(interiorCoords);
+            }
+        }
+
+        return gf.createPolygon(outerRing, innerRings);
+    }
+
+    private static String validateFieldName(String fieldName) {
+        if (fieldName == null || fieldName.isEmpty()) {
+            return "FIELD_" + System.currentTimeMillis();
+        }
+        String validName = fieldName.length() > 10 ? fieldName.substring(0, 10) : fieldName;
+        validName = validName.replaceAll("[^a-zA-Z0-9_]", "_");
+        if (validName.matches("^\\d.*")) {
+            validName = "F_" + validName;
+        }
+        return validName;
+    }
+
+    private static Class<?> getFieldClass(Object value) {
+        if (value == null) {
+            return String.class;
+        } else if (value instanceof Integer) {
+            return Integer.class;
+        } else if (value instanceof Double) {
+            return Double.class;
+        } else if (value instanceof Long) {
+            return Long.class;
+        } else if (value instanceof Boolean) {
+            return Boolean.class;
+        } else {
+            return String.class;
+        }
+    }
+
+    private static void bindAttributes(SimpleFeatureBuilder builder, SimpleFeatureType featureType,
+                                       List<LinkedHashMap<String, Object>> attrTable, int index) {
+        if (attrTable == null || attrTable.isEmpty() || index >= attrTable.size()) {
+            return;
+        }
+        LinkedHashMap<String, Object> attrRow = attrTable.get(index);
+        for (int i = 1; i < featureType.getAttributeCount(); i++) {
+            String fieldName = featureType.getDescriptor(i).getLocalName();
+            Object fieldValue = attrRow.getOrDefault(fieldName, null);
+            builder.add(fieldValue);
+        }
+    }
 
     public static Class<? extends Geometry> getGeometryClass(Layer layer) {
-        // 根据 geomType 字符串返回对应的 JTS 几何类
         switch (layer.GetGeomType()) {
             case 1:
-                return Point.class;
+                return org.locationtech.jts.geom.Point.class;
             case 2:
-                return LineString.class;
+                return org.locationtech.jts.geom.LineString.class;
             case 3:
-                return Polygon.class;
+                return org.locationtech.jts.geom.Polygon.class;
+            case 4:
+                return org.locationtech.jts.geom.MultiPoint.class;
+            case 5:
+                return org.locationtech.jts.geom.MultiLineString.class;
+            case 6:
+                return org.locationtech.jts.geom.MultiPolygon.class;
             default:
-                throw new IllegalArgumentException("未知的几何类型");
+                return org.locationtech.jts.geom.MultiPolygon.class;
         }
     }
 
@@ -449,6 +665,11 @@ public class SecretUtils {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("url", file.toURI().toString());
             DataStore dataStore = DataStoreFinder.getDataStore(map);
+            
+            // 设置字符编码为UTF-8，解决中文乱码问题
+            if (dataStore instanceof ShapefileDataStore) {
+                ((ShapefileDataStore) dataStore).setCharset(Charset.forName("UTF-8"));
+            }
 
             // 获取要素源
             String typeName = dataStore.getTypeNames()[0];

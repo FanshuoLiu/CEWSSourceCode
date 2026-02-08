@@ -6,12 +6,13 @@ import java.util.List;
 import java.util.Random;
 
 public class Coordinate implements Serializable {
-    private static final long serialVersionUID = 1L;
-    public static Point polarPoint;
-    public static Point polarAxisPoint;
+    public static Point polarPoint=null;
+    public static Point polarAxisPoint=null;
 
-    public static double axisAngle;
+    public static double axisAngle=0.0;
     public static Random random = new Random();
+
+    public static Coordinate coordinate=new Coordinate(null,null);
 
     public Coordinate(Point polarPoint, Point polarAxisPoint) {
         this.polarPoint = polarPoint;
@@ -45,19 +46,6 @@ public class Coordinate implements Serializable {
             list1.add(new Point(radius,angle));
         }
 
-        return list1;
-    }
-
-    //极坐标转直角
-    public static List<Point> toCartesian(List<Point> list){
-        List<Point> list1=new ArrayList<>();
-        for (Point p:list) {
-            double radius=p.getX();
-            double angle=p.getY();
-            double x=(radius*Math.cos(Math.toRadians(angle+axisAngle)))+polarPoint.getX();
-            double y=(radius*Math.sin(Math.toRadians(angle+axisAngle)))+polarPoint.getY();
-            list1.add(new Point(x,y));
-        }
         return list1;
     }
 
@@ -121,18 +109,29 @@ public class Coordinate implements Serializable {
 
 
     public static Coordinate initCoordinate(List<Point> points){
-        Domain.adaptationFactor =0.1;
-        Domain.Qa = 1;
-        polarPoint = calculateGeometricCenter(points);
-        List<Point> points1=new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
-            points1.add(points.get(random.nextInt(points.size())));
+        if (Domain.btn=="加密"){
+            Domain.adaptationFactor =0.01;
+            Domain.Qa = 1;
+        }else {
+            Domain.adaptationFactor =0.00001;
+            Domain.Qa = 0.000001;
         }
-        polarAxisPoint = Coordinate.calculateGeometricCenter(points1);
+        List<Point> points1=new ArrayList<>();
+        List<Point> points2=new ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            if (i%2==0){
+            points1.add(points.get(random.nextInt(points.size())));
+            }else {
+            points2.add(points.get(random.nextInt(points.size())));
+            }
+        }
+        polarPoint = calculateGeometricCenter(points2);
+        polarAxisPoint = calculateGeometricCenter(points1);
         System.out.println("极点和极轴点为:" + polarPoint + " " + polarAxisPoint);
-//        Domain.Qr = Domain.adaptationFactor * Math.sqrt(Math.pow(polarAxisPoint.getX() - polarPoint.getX(), 2) + Math.pow(polarAxisPoint.getY() - polarPoint.getY(), 2));
+        Domain.Qr = Domain.adaptationFactor * Math.sqrt(Math.pow(polarAxisPoint.getX() - polarPoint.getX(), 2) + Math.pow(polarAxisPoint.getY() - polarPoint.getY(), 2));
         System.out.println("QR:"+Domain.Qr);
-        return new Coordinate(polarPoint, polarAxisPoint);
+        coordinate=new Coordinate(polarPoint, polarAxisPoint);
+        return coordinate;
     }
 }
 
