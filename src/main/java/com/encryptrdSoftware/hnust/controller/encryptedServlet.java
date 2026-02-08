@@ -54,17 +54,6 @@ public class encryptedServlet extends HttpServlet {
         System.out.println("split:" + split);
         System.out.println("k:" + k);
         List<LinkedHashMap<String, Object>> maps = SecretUtils.readShapefile(new File(realfilename));
-//        // 外层：遍历List中的每个LinkedHashMap
-//        for (LinkedHashMap<String, Object> map : maps) {
-//            // 内层：遍历当前LinkedHashMap的键值对（保持插入顺序）
-//            for (Map.Entry<String, Object> entry : map.entrySet()) {
-//                String key = entry.getKey();
-//                Object value = entry.getValue();
-//                System.out.print(key + "=" + value + " "); // 同一行输出当前map的所有键值对
-//            }
-//            System.out.println(); // 每个LinkedHashMap输出完后换行，分隔不同元素
-//        }
-        Map<String, Set<Object>> setMap = StringUtils.deduplicateAttrToMap(maps);
         // 获取layer
         Layer layer = Domain.getLayer(new File(realfilename));
 
@@ -139,26 +128,17 @@ public class encryptedServlet extends HttpServlet {
             resp.getWriter().write("{\"status\":\"success\",\"message\":\"文件加密成功: \"}");
             return;
         }
-        int b=1;
-        int text=0;
-        System.out.println("list大小"+list.size());
         for (Shape shape:list){
             if (shape instanceof Line){
-                text++;
                 Line line = (Line) shape;
                 List<Point> linePoints = line.getPoints();
                 List<Point> polarPoints = coordinate.calculatePolarCoordinates(linePoints);
                 encryptedDomainList = Domain.calEncrypt(polarPoints);
                 watermarkDomainList = Domain.calWatermark(polarPoints);
-//              System.out.println("线要素"+b+"的加密域水印域集合生成完成");
                 watermarkDomainCollectionList.add(watermarkDomainList);
                 List<Point> polarPointShares = new ArrayList<>();
-
                 calculateShare(linePoints.size(),encryptedDomainList,watermarkDomainList,k,randomRadiusBigInteger,randomAngleBigInteger,random,polarPointShares);
-
                 List<Point> cartesiansPoints = Coordinate.recoverCartesian(polarPointShares);
-//                System.out.println("线要素"+b+"的直角密文生成完成");
-                b++;
                 cartesiansPointslist.addAll(cartesiansPoints);
                 if (split!=1){
                     for (int i = 0; i < split; i++) {
@@ -176,11 +156,9 @@ public class encryptedServlet extends HttpServlet {
                 }
             } else if (shape instanceof Polygon) {
                 Polygon polygon = (Polygon) shape;
-                text++;
                 processPolygon(polygon, filename, coordinate, k, randomRadiusBigInteger, randomAngleBigInteger, random, split, lists, points);
             } else if (shape instanceof MultiPolygon) {
                 MultiPolygon multiPolygon = (MultiPolygon) shape;
-                text++;
                 processMultiPolygon(multiPolygon, filename, coordinate, k, randomRadiusBigInteger, randomAngleBigInteger, random, split, lists, points);
             }
         }
@@ -234,7 +212,7 @@ public class encryptedServlet extends HttpServlet {
         if (filename.contains("加密")||filename.contains("解密")||filename.contains("提取")||filename.contains("水印")){
             polygon = polygon.removeLastPoint();
         }
-        //计算外环
+
         List<Point> exteriorPoints = polygon.getExteriors();
         List<Point> polarPoints = coordinate.calculatePolarCoordinates(exteriorPoints);
         List<encryptedDomain> encryptedDomainList = Domain.calEncrypt(polarPoints);
@@ -249,7 +227,6 @@ public class encryptedServlet extends HttpServlet {
         List<List<Point>> exteriorList=new ArrayList<>();
         for (int i = 0; i < split; i++) {
             int d = i;
-            // 创建坐标点集合
             List<Point> coordinatesList = new ArrayList<>();
             for (int j = 0; j < exteriorPoints.size(); j++) {
                 coordinatesList.add(new Point(cartesiansPoints.get(d).getX(), cartesiansPoints.get(d).getY()));
@@ -295,19 +272,16 @@ public class encryptedServlet extends HttpServlet {
     void processMultiPolygon(MultiPolygon multiPolygon, String filename, Coordinate coordinate, int k, BigInteger randomRadiusBigInteger, BigInteger randomAngleBigInteger, Random random, int split, List<List<Shape>> lists, List<Point> points) throws IOException {
         List<Polygon> polygons = multiPolygon.getPolygons();
         List<List<Polygon>> multiPolygonLists = new ArrayList<>();
-        
-        // 为每个split创建一个空的Polygon列表
+
         for (int i = 0; i < split; i++) {
             multiPolygonLists.add(new ArrayList<>());
         }
-        
-        // 处理每个Polygon
+
         for (Polygon polygon : polygons) {
             if (filename.contains("加密")||filename.contains("解密")||filename.contains("提取")||filename.contains("水印")){
                 polygon = polygon.removeLastPoint();
             }
-            
-            // 计算外环
+
             List<Point> exteriorPoints = polygon.getExteriors();
             List<Point> polarPoints = coordinate.calculatePolarCoordinates(exteriorPoints);
             List<encryptedDomain> encryptedDomainList = Domain.calEncrypt(polarPoints);
@@ -329,8 +303,7 @@ public class encryptedServlet extends HttpServlet {
                     coordinatesList.add(new Point(cartesiansPoints.get(d).getX(), cartesiansPoints.get(d).getY()));
                     d += split;
                 }
-                
-                // 处理内环
+
                 if (polygon.getInteriors().size()!=0){
                     List<List<Point>> interiorList = new ArrayList<>();
                     List<List<Point>> interiors = polygon.getInteriors();
@@ -359,8 +332,7 @@ public class encryptedServlet extends HttpServlet {
                 }
             }
         }
-        
-        // 为每个split创建一个MultiPolygon并添加到lists中
+
         for (int i = 0; i < split; i++) {
             lists.get(i).add(new MultiPolygon(multiPolygonLists.get(i)));
         }

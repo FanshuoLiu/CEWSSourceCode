@@ -11,24 +11,20 @@ public class ZipExtractorUtils {
 
     public static void unzip(String zipFilePath, String destDirectory) throws IOException {
         File dir = new File(destDirectory);
-        // 创建目标目录
         if (!dir.exists()) {
             dir.mkdirs();
         }
-
-        boolean hasShp = false;  // 标记是否包含 .shp 文件
-        boolean hasShx = false;  // 标记是否包含 .shx 文件
-        boolean hasDbf = false;  // 标记是否包含 .dbf 文件
+        boolean hasShp = false;
+        boolean hasShx = false;
+        boolean hasDbf = false;
         ZipInputStream zipInputStream = null;
 
         try {
             zipInputStream = new ZipInputStream(new FileInputStream(zipFilePath));
             ZipEntry entry;
 
-            // 首次遍历以检查所有必要的文件
             while ((entry = zipInputStream.getNextEntry()) != null) {
                 String entryName = entry.getName();
-                // 检查文件扩展名并设置标记
                 if (entryName.endsWith(".shp")) {
                     hasShp = true;
                 } else if (entryName.endsWith(".shx")) {
@@ -45,15 +41,11 @@ public class ZipExtractorUtils {
                 throw new IOException("上传失败：必须包含 .shp、.shx 和 .dbf 文件。");
             }
 
-            // 重新读取流以实际解压文件
             zipInputStream.close(); // 关闭当前流
             zipInputStream = new ZipInputStream(new FileInputStream(zipFilePath)); // 重新打开流
 
-            // 开始解压文件
             while ((entry = zipInputStream.getNextEntry()) != null) {
                 String filePath = destDirectory + File.separator + entry.getName();
-//                System.out.println("解压文件: " + filePath);
-                // 如果条目是目录，则创建目录
                 if (entry.isDirectory()) {
                     File newDir = new File(filePath);
                     newDir.mkdirs();
@@ -70,10 +62,10 @@ public class ZipExtractorUtils {
                 zipInputStream.closeEntry();
             }
         } catch (IOException e) {
-            throw e; // 继续抛出异常以便上层调用处理
+            throw e;
         } finally {
             if (zipInputStream != null) {
-                zipInputStream.close(); // 确保在 finally 块中关闭流
+                zipInputStream.close();
             }
         }
     }

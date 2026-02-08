@@ -1,7 +1,5 @@
 package com.encryptrdSoftware.hnust.model;
 
-import java.io.Serializable;
-
 public class watermarkDomain extends Domain{
     private double decimalRadius;
     private double decimalAngle;

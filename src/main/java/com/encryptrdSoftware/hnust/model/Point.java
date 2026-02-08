@@ -3,7 +3,7 @@ package com.encryptrdSoftware.hnust.model;
 public class Point implements Shape {
     double x;
     double y;
-    int fid; // 保留原始FID用于调试
+    int fid;
 
     public Point(double x, double y) {
         this.x = x;

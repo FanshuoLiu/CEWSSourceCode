@@ -39,7 +39,7 @@ public class shpToGeoJsonServlet extends HttpServlet {
         }
         String jsonData = requestBody.toString();
         if (jsonData.isEmpty()) {
-            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Request body is empty");
+            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "请求体为空");
             return;
         }
         try {
@@ -50,7 +50,7 @@ public class shpToGeoJsonServlet extends HttpServlet {
             filename = (String) requestData.get("filename");
         }catch (Exception e){
             e.printStackTrace();
-            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error processing request");
+            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "处理请求错误");
         }
 
         if (filename == null || filename.trim().isEmpty()) {
@@ -69,7 +69,7 @@ public class shpToGeoJsonServlet extends HttpServlet {
         try {
             geoJson = convertShpToGeoJson(realfilename);
         } catch (Exception e) {
-            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to convert SHP to GeoJSON");
+            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "转换失败");
             return;
         }
 

@@ -19,7 +19,7 @@ public class corsFilter implements Filter {
         }
         chain.doFilter(request, response);
     }
-    // 初始化和销毁方法（空实现即可）
+
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {}
     @Override

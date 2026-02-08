@@ -22,18 +22,16 @@ public class JSONParseUtils {
             }
         }
         String jsonData = requestBody.toString();
-        System.out.println("Received JSON data: " + jsonData); // 调试打印
         if (jsonData.isEmpty()) {
-            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Request body is empty");
+            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "请求体为空");
             return  null;
         }
         try {
-            // 将 JSON 字符串解析为 Map 或者您可以定义一个对应的 Java Bean
             requestData = objectMapper.readValue(jsonData, Map.class);
 
         }catch (Exception e){
             e.printStackTrace();
-            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error processing request");
+            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "处理请求失败");
         }
         return requestData;
     }

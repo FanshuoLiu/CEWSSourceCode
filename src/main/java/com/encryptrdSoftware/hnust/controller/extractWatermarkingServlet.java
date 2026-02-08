@@ -20,7 +20,6 @@ import java.util.Map;
 
 @WebServlet("/watermark")
 public class extractWatermarkingServlet extends HttpServlet {
-    private ObjectMapper objectMapper = new ObjectMapper(); // 创建 ObjectMapper 实例
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -76,7 +75,6 @@ public class extractWatermarkingServlet extends HttpServlet {
                     recoverPoints.add(new Point(x, y));
                     sb.append(s);
                 }
-                System.out.println("复原点数："+recoverPoints.size());
                 SecretUtils.createSHP(recoverPoints, layer, filename1.substring(0,filename1.lastIndexOf(".")), "提取水印", maps);
                 //处理点数大于比特串的情况
                 int originalBitLength = imgSize.get(0) * imgSize.get(1);

@@ -45,10 +45,10 @@ public class ZipCompressorUtils {
                 }
             }
             System.out.println("Files compressed successfully to: " + zipFilePath);
-            return new File(zipFilePath).getName(); // 返回生成的 ZIP 文件的文件名
+            return new File(zipFilePath).getName();
         } catch (IOException e) {
             e.printStackTrace();
-            return null; // 返回 null 指示失败
+            return null;
         }
     }
 

@@ -15,10 +15,10 @@ public class Polygon implements Shape {
     // 构造函数
     public Polygon(List<Point> exteriors, List<List<Point>> interiors) {
         if (exteriors != null) {
-            this.exteriors = new ArrayList<>(exteriors); // 复制传入的外环
+            this.exteriors = new ArrayList<>(exteriors);
         }
         if (interiors != null) {
-            this.interiors = new ArrayList<>(interiors); // 复制传入的内环
+            this.interiors = new ArrayList<>(interiors);
         }
     }
 
@@ -43,11 +43,11 @@ public class Polygon implements Shape {
         }
         return exteriors.size();
     }
-    // 获取外环
+
     public List<Point> getExteriors() {
         return exteriors;
     }
-    //获取内环
+
     public List<List<Point>> getInteriors() {
         return interiors;
     }

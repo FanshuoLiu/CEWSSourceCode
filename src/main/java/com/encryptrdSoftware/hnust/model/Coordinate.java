@@ -82,32 +82,6 @@ public class Coordinate implements Serializable {
         return new Point(centerX, centerY);
     }
 
-    //拆分集合
-//    public static <T> List<List<T>> splitCollection(List<T> originalCollection) {
-//        // 创建两个空列表，用于存储划分后的结果
-//        List<T> setA = new ArrayList<>();
-//        List<T> setB = new ArrayList<>();
-//
-//        // 打乱原集合元素顺序
-//        Collections.shuffle(originalCollection);
-//
-//        int index = 0;
-//        for (T element : originalCollection) {
-//            if (index % 2 == 0) {
-//                setA.add(element);
-//            } else {
-//                setB.add(element);
-//            }
-//            index++;
-//        }
-//        List<List<T>> result = new ArrayList<>();
-//        result.add(setA);
-//        result.add(setB);
-//        return result;
-//    }
-
-
-
     public static Coordinate initCoordinate(List<Point> points){
         if (Domain.btn=="加密"){
             Domain.adaptationFactor =0.01;

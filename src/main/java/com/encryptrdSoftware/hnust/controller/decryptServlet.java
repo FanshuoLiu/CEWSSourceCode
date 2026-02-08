@@ -213,8 +213,7 @@ public class decryptServlet extends HttpServlet {
                         }
                     } else if (shape instanceof MultiPoint) {
                         List<Point> recoverPoints = new ArrayList<>();
-                        
-                        // 处理每个Point
+
                         for (int k = 0; k < encryptedServlet.watermarkDomainCollectionList.get(number).size(); k++) {
                             List<BigInteger> selectedRadius = new ArrayList<>();
                             List<BigInteger> selectedAngle = new ArrayList<>();
@@ -230,8 +229,7 @@ public class decryptServlet extends HttpServlet {
                             pIndex++;
                         }
                         number++;
-                        
-                        // 转为原始直角坐标并创建恢复后的MultiPoint
+
                         List<Point> points = Coordinate.recoverCartesian(recoverPoints);
                         MultiPoint multiPoint = new MultiPoint();
                         for (Point point : points) {
@@ -245,8 +243,7 @@ public class decryptServlet extends HttpServlet {
                         // 处理每个Line
                         for (int lineIndex = 0; lineIndex < multiLine.getLines().size(); lineIndex++) {
                             List<Point> recoverPoints = new ArrayList<>();
-                            
-                            // 处理Line的每个点
+
                             for (int k = 0; k < encryptedServlet.watermarkDomainCollectionList.get(number).size(); k++) {
                                 List<BigInteger> radiusIntegers = encryptedServlet.radiusList.get(pIndex);
                                 List<BigInteger> angleIntegers = encryptedServlet.angleList.get(pIndex);
@@ -299,8 +296,7 @@ public class decryptServlet extends HttpServlet {
                                 pIndex++;
                             }
                             number++;
-                            
-                            // 处理内环
+
                             if (polygon.getInteriors().size() != 0) {
                                 List<List<Point>> recoverInteriors = new ArrayList<>();
                                 List<List<Point>> interiors = polygon.getInteriors();
@@ -330,8 +326,7 @@ public class decryptServlet extends HttpServlet {
                                 recoveredPolygons.add(new Polygon(Coordinate.recoverCartesian(recoverPoints), null));
                             }
                         }
-                        
-                        // 创建恢复后的MultiPolygon
+
                         recoverShapes.add(new MultiPolygon(recoveredPolygons));
                     }else {
                         resp.getWriter().write("{\"status\":\"error\",\"message\":\"不支持的类型\"}");

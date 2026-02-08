@@ -87,7 +87,6 @@ public class insertWatermarkingServlet extends HttpServlet {
         pic.add(WatermarkingUtils.width);
         pic.add(WatermarkingUtils.height);
         Coordinate coordinate=null;
-        List<Point> points4=null;
         coordinate = Coordinate.initCoordinate(centerPoints);
         for (Shape shape : geometries){
             if (shape instanceof Line){
@@ -96,7 +95,6 @@ public class insertWatermarkingServlet extends HttpServlet {
                 List<Point> watermarkedPoints = WatermarkingUtils.calcuWatermarking1(coordinate,line.getPoints(), strings,index);
                 List<Point> points = Coordinate.recoverCartesian(watermarkedPoints);
                 watermarkedShape.add(new Line(points));
-//                System.out.println(new Line(watermarkedPoints));
             } else if (shape instanceof MultiLine) {
                 MultiLine multiLine = (MultiLine) shape;
                 List<Line> lines = new ArrayList<>();
@@ -110,10 +108,9 @@ public class insertWatermarkingServlet extends HttpServlet {
                 if (shpFile.contains("加密")||shpFile.contains("解密")||shpFile.contains("提取")||shpFile.contains("水印")){
                     polygon = polygon.removeLastPoint();
                 }
-                //计算外环
+
                 List<Point> exteriors = polygon.getExteriors();
                 List<Point> exteriorPoints = WatermarkingUtils.calcuWatermarking1(coordinate,exteriors, strings,index);
-                //若有内环，计算内环
                 if (polygon.getInteriors()!=null){
                     List<List<Point>> watermarkedPolygon = new ArrayList<>();
                     for (List<Point> list : polygon.getInteriors()){

@@ -255,34 +255,6 @@ public class Domain {
             }
             return list;
         }
-    public static List<Feature> readShapefile(String shpFilePath) {
-        List<Feature> features = new ArrayList<>();
-
-        // 初始化 GDAL
-        gdal.AllRegister();
-        ogr.RegisterAll();
-
-        // 打开 Shapefile
-        DataSource dataset = ogr.Open(shpFilePath);
-
-        if (dataset == null) {
-            System.err.println("无法打开 Shapefile: " + shpFilePath);
-            return features; // 返回空集合
-        }
-
-        // 获取图层
-        Layer layer = dataset.GetLayer(0);
-        Feature feature;
-
-        // 遍历要素
-        while ((feature = layer.GetNextFeature()) != null) {
-            features.add(feature); // 添加特征到集合
-        }
-
-        // 清理
-        dataset.delete();
-        return features; // 返回要素集合
-    }
 }
 
 
